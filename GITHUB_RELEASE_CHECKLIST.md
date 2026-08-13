@@ -20,7 +20,7 @@ Use this checklist before updating the public ReviewPort repository or publishin
 
 - [x] Repository visibility is public so users can obtain the free release.
 - [x] The repository contains no account credentials, database records, or deployment secrets.
-- [ ] A software licence has been deliberately selected. The current repository is publicly downloadable but does **not** declare an open-source licence.
+- [x] The repository declares the MIT License in `LICENSE` and `README.md`.
 
 ## Final review
 
