@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
+    <title>ReviewPort — Full review report</title>
+    <link rel="stylesheet" href="css/review-explorer.css">
+</head>
+<body>
+    <a class="skip-link" href="#reviewTable">Skip to review list</a>
+
+    <header class="workspace-header">
+        <div class="brand-lockup" aria-label="ReviewPort local workspace">
+            <img class="brand-mark" src="images/icon-48.png" alt="">
+            <div>
+                <p class="eyebrow">LOCAL WORKSPACE</p>
+                <h1>Review report</h1>
+            </div>
+        </div>
+        <div class="header-actions">
+            <span class="local-pill"><span class="local-dot" aria-hidden="true"></span>Local</span>
+            <button id="openGettingStarted" class="button button-guide" type="button">Guide</button>
+            <button id="themeToggle" class="button button-theme" type="button" aria-pressed="true" title="Switch to light mode"><span aria-hidden="true">◐</span><span id="themeToggleLabel">Light</span></button>
+            <button id="refreshReviews" class="button button-quiet" type="button">Refresh</button>
+            <button id="openExport" class="button button-primary" type="button">Export</button>
+        </div>
+    </header>
+
+    <main class="workspace-shell">
+        <section id="pausedBanner" class="paused-banner" hidden aria-live="polite">
+            <div class="paused-icon" aria-hidden="true">Ⅱ</div>
+            <div>
+                <strong>Scan paused — saved reviews are ready to inspect.</strong>
+                <p id="pausedMessage">Complete TikTok verification in the product page, then use Resume after verification from the ReviewPort popup.</p>
+            </div>
+        </section>
+
+        <section class="workspace-title-row" aria-labelledby="workspaceTitle">
+            <div>
+                <p class="eyebrow">REVIEW SET</p>
+                <h2 id="workspaceTitle">Saved reviews</h2>
+                <p id="workspaceSubtitle" class="workspace-subtitle">No saved reviews yet.</p>
+            </div>
+            <div class="scan-context" id="scanContext">Open a TikTok Shop product page and start a scan.</div>
+        </section>
+
+        <section class="summary-grid" aria-label="Saved review summary">
+            <article class="summary-card">
+                <span class="summary-label">Saved reviews</span>
+                <strong id="summaryTotal">0</strong>
+                <span class="summary-note">local</span>
+            </article>
+            <article class="summary-card">
+                <span class="summary-label">With photos</span>
+                <strong id="summaryPhotos">0</strong>
+                <span class="summary-note"><b id="summaryMultiPhotos">0</b> with 2+ photos</span>
+            </article>
+            <article class="summary-card summary-card-warning">
+                <span class="summary-label">Needs attention</span>
+                <strong id="summaryLowRated">0</strong>
+                <span class="summary-note">rated 1–2 stars</span>
+            </article>
+        </section>
+
+        <section class="report-dual-workspace" aria-label="Review and export workspace">
+            <section class="review-workspace" aria-labelledby="reviewListTitle">
+            <div class="table-panel">
+                <div class="panel-toolbar">
+                    <div>
+                        <p class="eyebrow">REVIEW LIST</p>
+                        <h2 id="reviewListTitle">Reviews</h2>
+                    </div>
+                    <label class="sort-field" for="sortReviews">
+                        <span>Sort</span>
+                        <select id="sortReviews" name="sortReviews">
+                            <option value="newest">Newest first</option>
+                            <option value="lowest">Lowest rating first</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="table-scroll" tabindex="0">
+                    <table id="reviewTable">
+                        <caption class="visually-hidden">Saved TikTok Shop reviews. Select a row to view its full review and buyer photos.</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Date</th>
+                                <th scope="col">Reviewer</th>
+                                <th scope="col">Rating</th>
+                                <th scope="col">SKU / variant</th>
+                                <th scope="col">Review</th>
+                                <th scope="col">Photos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviewTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="table-footer">
+                    <p id="tableStatus" class="table-status">No reviews to display.</p>
+                    <button id="loadMoreReviews" class="button button-quiet" type="button" hidden>Load more reviews</button>
+                </div>
+            </div>
+
+            <aside id="detailPanel" class="detail-panel" aria-labelledby="detailTitle" aria-label="Selected review details">
+                <div id="detailEmpty" class="detail-empty">
+                    <span class="detail-empty-icon" aria-hidden="true">↗</span>
+                    <h2 id="detailTitle">Select a review</h2>
+                    <p>Select a row for the full review and buyer photos.</p>
+                </div>
+
+                <div id="detailContent" hidden>
+                    <div class="detail-header">
+                        <div>
+                            <p class="eyebrow">REVIEW DETAILS</p>
+                            <h2 id="detailReviewer">—</h2>
+                        </div>
+                        <button id="closeDetails" class="icon-button" type="button" aria-label="Close review details">×</button>
+                    </div>
+
+                    <div class="detail-meta" aria-label="Selected review information">
+                        <span id="detailRating" class="rating-badge">—</span>
+                        <span id="detailDate">—</span>
+                        <span id="detailSku">—</span>
+                    </div>
+
+                    <article class="review-copy">
+                        <h3>Review</h3>
+                        <p id="detailText">—</p>
+                    </article>
+
+                    <section id="mediaSection" class="media-section" aria-labelledby="mediaTitle">
+                        <div class="media-section-heading">
+                            <div>
+                                <p class="eyebrow">BUYER PHOTOS</p>
+                                <h3 id="mediaTitle">No buyer photos</h3>
+                            </div>
+                            <span id="photoPosition" class="photo-position" hidden></span>
+                        </div>
+
+                        <div id="mediaEmpty" class="media-empty">This review does not include buyer photos.</div>
+                        <div id="mediaViewer" class="media-viewer" hidden>
+                            <div class="media-stage">
+                                <button id="previousPhoto" class="media-nav media-nav-previous" type="button" aria-label="Previous photo">‹</button>
+                                <div class="image-frame">
+                                    <img id="mainPhoto" alt="Buyer review photo" referrerpolicy="no-referrer">
+                                    <div id="imageUnavailable" class="image-unavailable" hidden>
+                                        <strong>Image unavailable</strong>
+                                        <span>This photo could not be loaded from its original URL.</span>
+                                        <a id="openOriginalPhoto" href="#" target="_blank" rel="noopener noreferrer">Open original URL</a>
+                                    </div>
+                                </div>
+                                <button id="nextPhoto" class="media-nav media-nav-next" type="button" aria-label="Next photo">›</button>
+                            </div>
+                            <div id="photoThumbnails" class="thumbnail-strip" aria-label="Buyer review photos"></div>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+            <button id="detailBackdrop" class="detail-backdrop" type="button" aria-label="Close review details"></button>
+        </section>
+
+        <details class="report-export-workspace" id="exportDrawer">
+            <summary class="export-workspace-heading">
+                <div>
+                    <p class="eyebrow">EXPORT</p>
+                    <h2 id="exportWorkspaceTitle">Download reviews</h2>
+                </div>
+                <span class="export-context" id="exportContext">0 reviews ready</span>
+            </summary>
+
+            <div class="export-drawer-content">
+                <div class="export-format-intro">
+                    <strong>All exports stay local.</strong><span>Choose a file format below.</span>
+                </div>
+
+                <details class="report-column-customizer" id="columnCustomizer">
+                    <summary>
+                        <span>CSV columns</span>
+                        <small id="columnSummary">11 selected</small>
+                    </summary>
+                    <p>Choose fields and set their left-to-right order.</p>
+                    <div class="report-column-picker" id="columnPicker" aria-label="Custom ReviewPort CSV column selection"></div>
+                    <button class="button button-quiet report-reset-columns" id="resetColumns" type="button">Reset default columns</button>
+                </details>
+
+                <div class="export-downloads" aria-label="General export options">
+                    <div>
+                        <p class="eyebrow">QUICK DOWNLOAD</p>
+                        <h3>Use these files anywhere</h3>
+                        <p>Choose a spreadsheet-ready CSV or a structured Markdown file for your own analysis.</p>
+                    </div>
+                    <div class="export-button-row">
+                        <button id="exportReviewPort" class="button button-primary" type="button" disabled>Download custom CSV</button>
+                        <button id="exportMarkdown" class="button button-markdown" type="button" disabled>Download LLM Markdown</button>
+                    </div>
+                </div>
+
+                <details class="shopify-export-settings" id="shopifySettings">
+                    <summary><span>Send reviews to a Shopify review app</span><small id="shopifyFormatBadge">Judge.me</small></summary>
+                    <div class="shopify-settings-content">
+                        <ol class="shopify-progress" aria-label="Shopify export steps">
+                            <li class="is-active"><span>1</span>Choose app</li>
+                            <li><span>2</span>Match product</li>
+                            <li><span>3</span>Download CSV</li>
+                        </ol>
+
+                        <section class="shopify-step" aria-labelledby="shopifyStepChoose">
+                            <span class="shopify-step-number" aria-hidden="true">1</span>
+                            <div>
+                                <p class="eyebrow">CHOOSE APP</p>
+                                <h3 id="shopifyStepChoose">Where will you import these reviews?</h3>
+                                <p class="shopify-step-copy">Choose the review app installed in your Shopify store. ReviewPort prepares that app’s CSV layout locally.</p>
+                                <label class="shopify-format-field" for="shopifyFormat">
+                                    <span>My review app</span>
+                                    <select id="shopifyFormat" name="shopifyFormat">
+                                        <option value="judge_me">Judge.me</option>
+                                        <option value="loox">Loox</option>
+                                        <option value="okendo">Okendo</option>
+                                        <option value="opinew">Opinew</option>
+                                        <option value="ryviu">Ryviu</option>
+                                        <option value="yotpo">Yotpo</option>
+                                        <option value="stamped">Stamped</option>
+                                        <option value="fera">Fera sample mapping</option>
+                                    </select>
+                                </label>
+                                <p id="shopifyFormatDescription" class="shopify-format-description">Judge.me CSV. Product details can be left blank for a store review.</p>
+                            </div>
+                        </section>
+
+                        <section class="shopify-step" aria-labelledby="shopifyStepMatch">
+                            <span class="shopify-step-number" aria-hidden="true">2</span>
+                            <div>
+                                <p class="eyebrow">MATCH PRODUCT</p>
+                                <h3 id="shopifyStepMatch">Which Shopify product should receive these reviews?</h3>
+                                <p id="shopifyMatchGuidance" class="shopify-step-copy">Only fill in the fields required by the app you selected. Judge.me store reviews can be downloaded without a product match.</p>
+                                <div class="shopify-settings-grid shopify-match-grid">
+                                    <label class="shopify-field" for="productHandle">
+                                        <span>Product handle <small id="productHandleRequirement">Optional for Judge.me</small></span>
+                                        <input id="productHandle" type="text" autocomplete="off" placeholder="e.g., electric-bbq">
+                                    </label>
+                                    <label class="shopify-field" for="productId">
+                                        <span>Product ID <small id="productIdRequirement">Only if the app asks for it</small></span>
+                                        <input id="productId" type="text" inputmode="numeric" autocomplete="off" placeholder="Leave blank unless required">
+                                    </label>
+                                </div>
+                                <p class="shopify-handle-explanation"><strong>Where do I find the handle?</strong> It is the part after <code>/products/</code> in your Shopify URL. For <code>yourstore.com/products/electric-bbq</code>, enter <code>electric-bbq</code>.</p>
+
+                                <details class="shopify-advanced-settings" id="advancedProductSettings">
+                                    <summary>My app needs more product details <small>Stamped only</small></summary>
+                                    <div class="shopify-settings-grid">
+                                        <label class="shopify-field" for="productUrl"><span>Shopify product URL</span><input id="productUrl" type="url" autocomplete="off" placeholder="https://yourstore.com/products/..." ></label>
+                                        <label class="shopify-field" for="productImageUrl"><span>Product image URL</span><input id="productImageUrl" type="url" autocomplete="off" placeholder="https://cdn.shopify.com/...jpg" ></label>
+                                        <label class="shopify-field shopify-field-wide" for="productTitle"><span>Product title</span><input id="productTitle" type="text" autocomplete="off" placeholder="Your Shopify product title"></label>
+                                    </div>
+                                </details>
+
+                                <details class="shopify-advanced-settings" id="yotpoSettings">
+                                    <summary>Yotpo needs extra confirmation <small>Product ID, country, email policy</small></summary>
+                                    <div class="shopify-settings-grid">
+                                        <label class="shopify-field" for="yotpoScope"><span>Yotpo review type</span><select id="yotpoScope" name="yotpoScope"><option value="product">Product review</option><option value="site">Site review</option></select></label>
+                                        <label class="shopify-field" for="yotpoCountry"><span>Customer country</span><input id="yotpoCountry" type="text" maxlength="2" autocomplete="off" placeholder="e.g., us"></label>
+                                    </div>
+                                    <label class="technical-email-confirmation" for="yotpoUseTechnicalEmail"><input id="yotpoUseTechnicalEmail" type="checkbox"><span>I understand ReviewPort will use a unique <code>@reviewport.local</code> technical placeholder, not a real customer email.</span></label>
+                                </details>
+
+                                <details class="shopify-advanced-settings shopify-publication-settings">
+                                    <summary>Review visibility <small>Pending by default</small></summary>
+                                    <label class="shopify-field" for="publicationState">
+                                        <span>When imported</span>
+                                        <select id="publicationState" name="publicationState">
+                                            <option value="pending">Keep reviews pending for my approval</option>
+                                            <option value="published">Publish immediately</option>
+                                        </select>
+                                    </label>
+                                </details>
+                            </div>
+                        </section>
+
+                        <section class="shopify-step shopify-step-download" aria-labelledby="shopifyStepDownload">
+                            <span class="shopify-step-number" aria-hidden="true">3</span>
+                            <div>
+                                <p class="eyebrow">DOWNLOAD</p>
+                                <h3 id="shopifyStepDownload">Download the import file</h3>
+                                <p id="shopifyValidation" class="shopify-validation" role="status">ReviewPort checks the required fields before downloading your local CSV.</p>
+                                <button id="exportShopify" class="button button-secondary" type="button" disabled>Download Shopify CSV</button>
+                            </div>
+                        </section>
+                    </div>
+                </details>
+                <p class="export-helper">Downloads stay in your browser. No AI service or external upload is used.</p>
+
+                <details class="bug-report" id="bugReport">
+                    <summary>Report a bug</summary>
+                    <p>We prepare an email draft. Review text, usernames, and photo URLs are never included automatically.</p>
+                    <label for="bugDescription">What went wrong?</label>
+                    <textarea id="bugDescription" rows="4" maxlength="1800" placeholder="Example: I selected 1 star, but TikTok stayed on All reviews."></textarea>
+                    <label class="bug-diagnostics" for="includeDiagnostics">
+                        <input id="includeDiagnostics" type="checkbox" checked>
+                        <span>Include extension version, scan settings, status, and review counts</span>
+                    </label>
+                    <button id="prepareBugReport" class="button button-quiet" type="button">Prepare email to support</button>
+                    <p class="bug-status" id="bugStatus" role="status"></p>
+                </details>
+            </div>
+        </details>
+        </section>
+    </main>
+
+    <footer class="workspace-footer">
+        <span>ReviewPort processes saved review data locally in your browser.</span>
+        <span>Not affiliated with TikTok or Judge.me.</span>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script src="js/review-explorer.js"></script>
+</body>
+</html>

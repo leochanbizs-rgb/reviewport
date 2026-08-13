@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
+    <title>ReviewPort — Getting started</title>
+    <link rel="stylesheet" href="css/getting-started.css">
+</head>
+<body>
+    <a class="skip-link" href="#guideSteps">Skip to guide steps</a>
+
+    <header class="guide-header">
+        <div class="brand-lockup" aria-label="ReviewPort getting started guide">
+            <img class="brand-mark" src="images/icon-48.png" alt="">
+            <div>
+                <p class="eyebrow">LOCAL WORKSPACE</p>
+                <h1>Getting started</h1>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button id="themeToggle" class="button button-theme" type="button" aria-pressed="true" title="Switch to light mode"><span aria-hidden="true">◐</span><span id="themeToggleLabel">Light</span></button>
+            <button id="openReport" class="button button-primary" type="button">Open full report</button>
+        </div>
+    </header>
+
+    <main class="guide-shell">
+        <section class="guide-hero" aria-labelledby="guideTitle">
+            <div>
+                <p class="eyebrow">START HERE</p>
+                <h2 id="guideTitle">From TikTok Shop reviews to an export-ready file.</h2>
+                <p>ReviewPort keeps the workflow simple: choose reviews in the popup, inspect them in the report, then download the format your next tool needs.</p>
+            </div>
+            <div class="privacy-pill"><span aria-hidden="true">●</span> All processing stays local</div>
+        </section>
+
+        <nav class="step-rail" aria-label="ReviewPort workflow">
+            <a href="#stepScan"><span>1</span> Scan</a>
+            <a href="#stepReview"><span>2</span> Review</a>
+            <a href="#stepExport"><span>3</span> Export</a>
+        </nav>
+
+        <section id="guideSteps" class="guide-steps" aria-label="Getting started steps">
+            <article id="stepScan" class="guide-card guide-card-scan">
+                <div class="step-number" aria-hidden="true">01</div>
+                <div class="card-copy">
+                    <p class="eyebrow">IN THE POPUP</p>
+                    <h2>Choose and scan</h2>
+                    <p>Open a TikTok Shop product page, choose a star range and page limit, then select <strong>Scan reviews</strong>. Keep <strong>Photos only</strong> off unless you need only photo reviews.</p>
+                    <p class="micro-note"><strong>Exact star scan:</strong> set the same minimum and maximum rating. ReviewPort confirms TikTok’s visible filter before it scans.</p>
+                </div>
+                <div class="step-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 5h16v10H4zM8 19h8M12 15v4M8 9h5M8 12h3"/></svg></div>
+            </article>
+
+            <article id="stepReview" class="guide-card guide-card-review">
+                <div class="step-number" aria-hidden="true">02</div>
+                <div class="card-copy">
+                    <p class="eyebrow">FULL REPORT</p>
+                    <h2>Inspect what was saved</h2>
+                    <p>When the scan finishes, the full report opens automatically. Sort the table, select any row to read the complete review, and inspect buyer photos without scanning TikTok again.</p>
+                    <p class="micro-note"><strong>Need more later?</strong> Return to the popup, change the scan settings, and run another scan.</p>
+                </div>
+                <div class="step-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v14H5zM9 15l6-6M10 9h5v5"/></svg></div>
+            </article>
+
+            <article id="stepExport" class="guide-card guide-card-export">
+                <div class="step-number" aria-hidden="true">03</div>
+                <div class="card-copy">
+                    <p class="eyebrow">EXPORT DRAWER</p>
+                    <h2>Choose a file format</h2>
+                    <p>Select <strong>Export</strong> in the report header. Choose Custom CSV for a spreadsheet, LLM Markdown for analysis, or a Shopify review-app format such as Judge.me, Loox, Okendo, Opinew, Ryviu, Yotpo, Stamped, or Fera.</p>
+                    <p class="micro-note"><strong>Shopify matching:</strong> enter only your own product details when the selected importer requires them. New Shopify exports stay pending by default.</p>
+                </div>
+                <div class="step-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 4v11M8 11l4 4 4-4M5 20h14"/></svg></div>
+            </article>
+        </section>
+
+        <section class="guide-notes" aria-label="Important tips">
+            <article class="note-card note-card-safe">
+                <span class="note-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3zM10 9v6M14 9v6"/></svg></span>
+                <div>
+                    <h2>If TikTok asks you to verify</h2>
+                    <p>ReviewPort pauses safely. Complete the verification yourself on the TikTok page, then choose <strong>Resume after verification</strong> in the popup. It never attempts to bypass verification.</p>
+                </div>
+            </article>
+            <article class="note-card">
+                <span class="note-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16v11H4zM8 11h8M8 15h5M16 15h.01"/></svg></span>
+                <div>
+                    <h2>Before importing to Shopify</h2>
+                    <p>Use the format required by your review app. Some formats need a product handle or product ID. Strict Shopify formats accept public JPG, JPEG, and PNG image URLs; Custom CSV keeps the original captured URLs.</p>
+                </div>
+            </article>
+        </section>
+
+        <details class="guide-details">
+            <summary>What ReviewPort does not change</summary>
+            <p>ReviewPort keeps TikTok’s original masked username, does not translate or rewrite reviews, does not use external AI services, and does not upload your review data. It only stores saved data locally in Chrome until you export or clear it.</p>
+        </details>
+    </main>
+
+    <footer class="guide-footer">
+        <span>ReviewPort processes saved review data locally in your browser.</span>
+        <span>Not affiliated with TikTok or any Shopify review app.</span>
+    </footer>
+
+    <script src="js/getting-started.js"></script>
+</body>
+</html>

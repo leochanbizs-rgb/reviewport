@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReviewPort</title>
+    <link rel="stylesheet" href="css/popup.css">
+</head>
+<body>
+    <main class="app-shell" aria-label="ReviewPort">
+        <header class="app-header">
+            <div class="brand-lockup">
+                <img class="brand-mark" src="images/icon-48.png" alt="ReviewPort logo">
+                <div>
+                    <p class="eyebrow">REVIEW EXPORTER</p>
+                    <h1>ReviewPort</h1>
+                </div>
+            </div>
+            <span class="status-pill" id="connectionPill">Ready</span>
+        </header>
+
+        <section class="hero-card" aria-labelledby="heroTitle">
+            <div>
+                <p class="hero-kicker">FOR TIKTOK SHOP</p>
+                <h2 id="heroTitle">Scan first. Review everything next.</h2>
+                <p>Choose the reviews you need. When scanning ends, your full local report opens automatically.</p>
+            </div>
+            <div class="hero-icon" aria-hidden="true">⌁</div>
+        </section>
+
+        <section class="panel" aria-labelledby="filtersTitle">
+            <div class="section-heading">
+                <div>
+                    <p class="section-kicker">01 · SCAN SETUP</p>
+                    <h2 id="filtersTitle">Choose reviews to collect</h2>
+                </div>
+                <span class="microcopy">Original language kept</span>
+            </div>
+
+            <div class="field-grid" role="group" aria-label="Review rating range">
+                <label class="field" for="minStars">
+                    <span>Minimum rating</span>
+                    <select id="minStars" name="minStars">
+                        <option value="1">1 star</option>
+                        <option value="2">2 stars</option>
+                        <option value="3">3 stars</option>
+                        <option value="4">4 stars</option>
+                        <option value="5">5 stars</option>
+                    </select>
+                </label>
+
+                <label class="field" for="maxStars">
+                    <span>Maximum rating</span>
+                    <select id="maxStars" name="maxStars">
+                        <option value="1">1 star</option>
+                        <option value="2">2 stars</option>
+                        <option value="3">3 stars</option>
+                        <option value="4">4 stars</option>
+                        <option value="5" selected>5 stars</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="inline-help-row">
+                <span>Exact rating scan</span>
+                <button class="help-tip" type="button" aria-label="How exact rating scan works" aria-describedby="exactRatingHelp">?</button>
+                <span id="exactRatingHelp" class="tooltip" role="tooltip">Choose the same minimum and maximum star level. ReviewPort first confirms TikTok's visible matching filter, then scans only that result set. If TikTok does not confirm it, scanning pauses instead of scanning all reviews.</span>
+            </div>
+
+            <label class="field field-full" for="maxPages">
+                <span>Pages to scan <button class="help-tip" type="button" aria-label="About pages to scan" aria-describedby="pagesHelp">?</button><span id="pagesHelp" class="tooltip" role="tooltip">The maximum number of TikTok review pages to collect, from 1 to 100. ReviewPort scans one visible page at a time and saves reviews locally as it goes.</span></span>
+                <input type="number" id="maxPages" name="maxPages" min="1" max="100" value="10" inputmode="numeric">
+            </label>
+
+            <label class="toggle-row" for="onlyWithImages">
+                <span class="toggle-copy">
+                    <strong>Photos only <button class="help-tip" type="button" aria-label="About Photos only" aria-describedby="photosHelp">?</button><span id="photosHelp" class="tooltip" role="tooltip">Turn this on only when you need reviews that include one or more buyer images. When off, ReviewPort keeps both photo and text-only reviews.</span></strong>
+                    <small>Off by default.</small>
+                </span>
+                <input type="checkbox" id="onlyWithImages" name="onlyWithImages">
+                <span class="toggle" aria-hidden="true"></span>
+            </label>
+        </section>
+
+        <section class="scan-card" aria-live="polite" aria-labelledby="scanStatusTitle">
+            <div class="scan-meta">
+                <div>
+                    <p class="section-kicker">02 · SCAN STATUS</p>
+                    <h2 id="scanStatusTitle">Ready to scan</h2>
+                </div>
+                <strong class="review-count" id="reviewCount">0 reviews</strong>
+            </div>
+            <p class="status-copy" id="status">Set your review selection, then start scanning.</p>
+            <div class="progress" aria-label="Scan progress" aria-valuemin="0" aria-valuemax="100" role="progressbar">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+        </section>
+
+        <section class="action-stack" aria-label="Actions">
+            <button id="startScraping" class="button button-primary" type="button">
+                <span class="button-icon">↻</span>
+                Scan reviews
+            </button>
+            <button id="pauseScraping" class="button button-pause" type="button" hidden>
+                <span class="button-icon">Ⅱ</span>
+                Pause scan
+            </button>
+            <button id="stopScraping" class="button button-stop" type="button" hidden>
+                <span class="button-icon">■</span>
+                Stop scan
+            </button>
+            <button id="resumeScraping" class="button button-resume" type="button" hidden>
+                <span class="button-icon">▶</span>
+                Resume scan
+            </button>
+            <button id="openFullPreview" class="button button-preview" type="button" disabled>
+                <span class="button-icon">↗</span>
+                Open full report
+            </button>
+            <button id="clearData" class="button button-quiet" type="button">Clear saved results</button>
+        </section>
+
+        <div class="popup-utility-row">
+            <button id="openGettingStarted" class="guide-link" type="button"><span aria-hidden="true">?</span> New here? See the quick guide</button>
+        </div>
+        <p class="flow-note">CSV, Markdown, Shopify review-app exports, and column customization are available in the full report.</p>
+
+        <footer class="app-footer">
+            <span>Data stays in your browser until you export or clear it.</span>
+            <span>Not affiliated with TikTok or Judge.me.</span>
+        </footer>
+    </main>
+
+    <script src="js/utils.js"></script>
+    <script src="js/popup.js"></script>
+</body>
+</html>
