@@ -1,13 +1,13 @@
 # ReviewPort for TikTok Shop
 
-ReviewPort is a **free Chrome extension** for filtering, previewing, and exporting reviews from TikTok Shop product pages as CSV files. It works in Chrome and processes review data locally in your browser.
+ReviewPort is a **free Chrome extension** for filtering, previewing, and exporting TikTok Shop product reviews as CSV files. It processes review data locally in your browser.
 
 > ReviewPort is an independent tool. It is not affiliated with, endorsed by, or sponsored by TikTok, TikTok Shop, Judge.me, Google, or Shopify.
 
 ## Download and install
 
-1. On GitHub, select **Code → Download ZIP**.
-2. Unzip the downloaded folder somewhere you can keep it.
+1. Download the [ReviewPort v4.5.0 release ZIP](https://github.com/leochanbizs-rgb/reviewport/raw/refs/heads/main/reviewport-v4.5.0.zip).
+2. Unzip the downloaded release file somewhere you can keep it.
 3. Open `chrome://extensions` in Google Chrome.
 4. Turn on **Developer mode** in the top-right corner.
 5. Select **Load unpacked**.
@@ -15,7 +15,7 @@ ReviewPort is a **free Chrome extension** for filtering, previewing, and exporti
 7. Pin ReviewPort from Chrome's Extensions menu.
 8. Open a TikTok Shop product page, scroll to the reviews, then select the ReviewPort toolbar icon.
 
-To update the extension, download the latest repository ZIP, unzip it, then return to `chrome://extensions` and select **Reload** on the ReviewPort card.
+To update, download the latest release ZIP, unzip it, and select **Reload** on the ReviewPort card in `chrome://extensions`.
 
 ## What it does
 
@@ -30,18 +30,17 @@ To update the extension, download the latest repository ZIP, unzip it, then retu
 
 ## Use ReviewPort
 
-1. In the popup, select the lowest and highest star ratings you want.
-2. Set **Pages to scan** and, if useful, turn on **Photos only**.
-3. Select **Scan reviews**.
-4. If TikTok presents a verification prompt, complete it yourself and then select **Resume after verification**.
-5. Choose **Open full preview** to review saved results locally.
-6. Select **Export CSV** when you are ready to save a file.
+1. In the popup, choose the rating range, page limit, and optional **Photos only** filter.
+2. Select **Scan reviews**.
+3. If TikTok presents a verification prompt, complete it yourself and select **Resume after verification**.
+4. Choose **Open full preview** to inspect saved results locally.
+5. Select **Export CSV** when you are ready to save a file.
 
 ## Local processing and retention
 
 ReviewPort does not require an account, API key, AI service, translation service, or remote ReviewPort server. It handles review information only after you start a scan. Review data and preferences remain in Chrome extension storage until you clear them or the extension removes saved data after seven days.
 
-See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for details.
+See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) and [CSV_EXPLORER_SPEC.md](CSV_EXPLORER_SPEC.md) for details.
 
 ## Permissions
 
