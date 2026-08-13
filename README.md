@@ -28,33 +28,15 @@ To update, download the latest release ZIP, unzip it, and select **Reload** on t
 | Judge.me CSV | Creates a Judge.me-compatible CSV layout when you provide a Shopify product handle. |
 | Verification-safe pause | Pauses when TikTok requests verification; you complete verification yourself before resuming. |
 
-## Use ReviewPort
-
-1. In the popup, choose the rating range, page limit, and optional **Photos only** filter.
-2. Select **Scan reviews**.
-3. If TikTok presents a verification prompt, complete it yourself and select **Resume after verification**.
-4. Choose **Open full preview** to inspect saved results locally.
-5. Select **Export CSV** when you are ready to save a file.
-
 ## Local processing and retention
 
 ReviewPort does not require an account, API key, AI service, translation service, or remote ReviewPort server. It handles review information only after you start a scan. Review data and preferences remain in Chrome extension storage until you clear them or the extension removes saved data after seven days.
 
 See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) and [CSV_EXPLORER_SPEC.md](CSV_EXPLORER_SPEC.md) for details.
 
-## Permissions
+## License
 
-| Permission | Reason |
-|---|---|
-| `activeTab` | Works with the TikTok Shop product page you selected. |
-| `scripting` | Reconnects to the active product page if it was loaded before ReviewPort. |
-| `storage` | Keeps scan state, preferences, and collected reviews locally. |
-| `alarms` | Runs the seven-day local cleanup. |
-| `https://shop.tiktok.com/*` | Limits page access to TikTok Shop. |
-
-## Limits and responsible use
-
-TikTok Shop can change page structure, pagination, or access controls. ReviewPort does not bypass verification or alter TikTok Shop pages. Use it only with product pages and review data you are entitled to access, and follow applicable laws, platform terms, and reviewer privacy rights.
+ReviewPort is available under the [MIT License](LICENSE).
 
 ## Support
 
