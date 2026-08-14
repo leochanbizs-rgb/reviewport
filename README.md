@@ -25,7 +25,7 @@ For an exact rating scan, ReviewPort first operates TikTok's visible native rati
 1. Download and unzip the release asset from GitHub Releases.
 2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 3. Select **Load unpacked**.
-4. Choose the unzipped **`extension/`** folder.
+4. For a GitHub **release ZIP**, choose the unzipped folder that directly contains `manifest.json`. For a source checkout or a GitHub source archive, choose its **`extension/`** folder.
 5. Open a TikTok Shop product page, scroll to reviews, and select the ReviewPort toolbar icon.
 
 To update an existing unpacked installation, replace the unzipped release folder and choose **Reload** in `chrome://extensions`.
