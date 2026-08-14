@@ -53,6 +53,16 @@
     const PACING = Object.freeze({ selectorRefresh: 250, pageClickSettling: 450, responsePoll: 400, responseWait: 8000, betweenPages: 900, storageDebounce: 400, stateDebounce: 180 });
     const debug = (...args) => { if (DEBUG) console.debug('[ReviewPort]', ...args); };
     let requiredNativeRating = 0; // exact native rating used for the current scan, or 0
+    // The popup's minimum/maximum star fields previously only had an effect when both
+    // were equal (an exact-rating scan). A genuine range is now applied to every
+    // collection path, so a 3-4 star scan cannot return 1 star reviews.
+    let activeRatingRange = { min: 1, max: 5 };
+
+    function isRatingInScanRange(rating) {
+        const value = parseInt(rating, 10);
+        if (!Number.isFinite(value) || value < 1 || value > 5) return false;
+        return value >= activeRatingRange.min && value <= activeRatingRange.max;
+    }
 
     function tsToDate(ms) {
         try {
@@ -98,7 +108,7 @@
         let added = 0;
         for (const raw of rawList) {
             const r = normalizeReview(raw);
-            if (r && (!requiredNativeRating || r.rating === requiredNativeRating) && !reviewStore.has(r.review_id)) {
+            if (r && (!requiredNativeRating || r.rating === requiredNativeRating) && isRatingInScanRange(r.rating) && !reviewStore.has(r.review_id)) {
                 reviewStore.set(r.review_id, r);
                 added++;
             }
@@ -150,17 +160,52 @@
         return (hash >>> 0).toString(36);
     }
 
+    // A review date is the most reliable structural anchor in the review area: it is a
+    // leaf node with a fixed format, and it appears exactly once per review card.
+    function dateLeafNodes(root) {
+        if (!root) return [];
+        return Array.from(root.querySelectorAll('span, p, time, div'))
+            .filter(node => node.children.length === 0 && DATE_MARKER.test(normalizedText(node.textContent)));
+    }
+
+    // TikTok Shop renders the product page inside its own scrolling element, so the
+    // window scroll position is nearly fixed. Any scroll must drive the real container.
+    function scrollContainerFor(element) {
+        let cursor = element;
+        while (cursor && cursor !== document.body) {
+            const style = window.getComputedStyle(cursor);
+            if (/auto|scroll/.test(style.overflowY) && cursor.scrollHeight > cursor.clientHeight + 20) return cursor;
+            cursor = cursor.parentElement;
+        }
+        return document.scrollingElement || document.body;
+    }
+
     function findVisibleReviewScope() {
         const select = findNativeRatingSelect();
         let cursor = select?.interactive || select?.valueNode || null;
-        for (let level = 0; cursor && level < 9; level++, cursor = cursor.parentElement) {
+        // TikTok nests the rating control inside several presentational wrappers before
+        // reaching the block that also holds the review cards. A ceiling that stops short
+        // of that block returns no scope at all, which silently disables every visible
+        // read; the walk is bounded but must be able to reach it.
+        for (let level = 0; cursor && level < 14; level++, cursor = cursor.parentElement) {
             const text = normalizedText(cursor.innerText || cursor.textContent);
             if (text.length < 14000 && REVIEW_TEXT_MARKERS.test(text)
                 && (cursor.querySelector('article, li, [data-e2e*="review" i], [data-testid*="review" i], [class*="review-item" i], [class*="review-card" i]')
-                    || Array.from(cursor.querySelectorAll('span, p, time, div')).some(node => DATE_MARKER.test(normalizedText(node.textContent))))) {
+                    || dateLeafNodes(cursor).length > 0)) {
                 return cursor;
             }
         }
+        // Layout fallback. Current TikTok markup carries no review-list class to match on,
+        // so anchor on a visible review date and climb to the widest bounded container.
+        const [firstDate] = dateLeafNodes(document.body);
+        let anchor = firstDate?.parentElement || null;
+        let widest = null;
+        for (let level = 0; anchor && level < 12; level++, anchor = anchor.parentElement) {
+            const text = normalizedText(anchor.innerText || anchor.textContent);
+            if (text.length >= 14000) break;
+            if (dateLeafNodes(anchor).length > 0) widest = anchor;
+        }
+        if (widest) return widest;
         return document.querySelector('[data-e2e*="review-list" i], [data-testid*="review-list" i], [class*="review-list" i]');
     }
 
@@ -186,26 +231,63 @@
         if (!scope) return null;
         const lines = String(scope.innerText || scope.textContent || '').split(/\n+/).map(normalizedText).filter(Boolean);
         const histogram = {};
-        for (let index = 0; index < lines.length; index++) {
+        const histogramComplete = () => [1, 2, 3, 4, 5].every(rating => Number.isFinite(histogram[rating]));
+        // TikTok's compact rating histogram is rendered as a full descending sequence:
+        // `5,count,4,count,3,count,2,count,1,count`. A bare count such as `1` is
+        // otherwise ambiguous with a rating label, while a pager is ascending; requiring
+        // this entire ordered sequence prevents either from corrupting exact-rating metrics.
+        for (let index = 0; index + 9 < lines.length && !histogramComplete(); index++) {
+            const candidate = {};
+            let isDescendingHistogram = true;
+            for (let offset = 0; offset < 5; offset++) {
+                const rating = 5 - offset;
+                const ratingLine = lines[index + (offset * 2)];
+                const countLine = lines[index + (offset * 2) + 1];
+                if (ratingLine !== String(rating) || !/^[\d,]+$/.test(countLine)) {
+                    isDescendingHistogram = false;
+                    break;
+                }
+                candidate[rating] = Number(countLine.replace(/,/g, ''));
+            }
+            if (isDescendingHistogram) Object.assign(histogram, candidate);
+        }
+        for (let index = 0; index < lines.length && !histogramComplete(); index++) {
             const tokens = numericTokens(lines[index]);
             const inlineRating = tokens.length >= 2 && /^[1-5]$/.test(String(tokens[0])) && /(?:★|☆|stars?|星)/i.test(lines[index]) ? tokens[0] : 0;
             const nextRating = tokens.length === 1 && /^[1-5]$/.test(String(tokens[0])) ? tokens[0] : 0;
-            if (inlineRating && tokens[1] >= 0) histogram[inlineRating] = tokens[1];
-            if (nextRating && index + 1 < lines.length) {
+            // First value wins. A review pager renders as bare consecutive numbers
+            // ("上一個 1 2 3 4 5 ... 234 下一個"), which reads as rating 1 with a count of 2,
+            // rating 2 with a count of 3, and so on. Allowing later matches to overwrite let
+            // the pager replace the real rating distribution and corrupt the total, which in
+            // turn made the exact-rating gate impossible to satisfy.
+            if (inlineRating && tokens[1] >= 0 && !Number.isFinite(histogram[inlineRating])) histogram[inlineRating] = tokens[1];
+            if (nextRating && !Number.isFinite(histogram[nextRating]) && index + 1 < lines.length) {
                 const nextTokens = numericTokens(lines[index + 1]);
                 if (nextTokens.length === 1 && nextTokens[0] >= 0) histogram[nextRating] = nextTokens[0];
             }
+            // The rating summary is published above the review list, so the first complete
+            // set is the real one. Stop before walking into the list and its pager.
+            if (histogramComplete()) break;
         }
-        const completeHistogram = [1, 2, 3, 4, 5].every(rating => Number.isFinite(histogram[rating]));
-        if (!completeHistogram) return null;
+        if (!histogramComplete()) return null;
         const total = [1, 2, 3, 4, 5].reduce((sum, rating) => sum + histogram[rating], 0);
         if (!total) return null;
+        // TikTok publishes the library size and the count matching the current filter on a
+        // single line. The order is not stable: an unfiltered page reads "顯示 5608 則評論
+        // (總計 5608 則)", while a 1-star filter reads "顯示 5608 則評論 (總計 702 則)" —
+        // the library size stays first and the matching count moves to the second slot.
+        // Assuming a fixed [matching, total] order left `displayed` unset whenever a filter
+        // was active, so the exact-rating gate could never confirm. Identify the matching
+        // count as whichever value is not the library total.
         for (const line of lines) {
             const values = numericTokens(line);
             if (values.length !== 2) continue;
-            const [displayed, lineTotal] = values;
-            if (lineTotal === total && displayed >= 0 && displayed <= total) {
-                return { histogram, total, displayed, source: 'review-results-count' };
+            const [first, second] = values;
+            if (first === total && second >= 0 && second <= total) {
+                return { histogram, total, displayed: second, source: 'review-results-count' };
+            }
+            if (second === total && first >= 0 && first <= total) {
+                return { histogram, total, displayed: first, source: 'review-results-count' };
             }
         }
         return { histogram, total, displayed: null, source: 'histogram-only' };
@@ -239,52 +321,111 @@
         return latest;
     }
 
+    // PRODUCT_LABEL is anchored to the start of a line. A whole card's text begins with
+    // the reviewer name, so it must be tested per line, never against the joined text.
+    function hasProductLine(element) {
+        if (!element) return false;
+        return String(element.innerText || element.textContent || '')
+            .split(/\n+/)
+            .some(line => PRODUCT_LABEL.test(normalizedText(line)));
+    }
+
+    function ratingLabelNodes(element) {
+        if (!element) return [];
+        return Array.from(element.querySelectorAll('[role="img"][aria-label], [aria-label], [data-rating], [data-value]'))
+            .filter(node => ratingFromLabelNode(node) > 0);
+    }
+
     function visibleReviewCandidateCards(scope) {
         if (!scope) return [];
         const direct = Array.from(scope.querySelectorAll(
             'article, li, [data-e2e*="review-item" i], [data-testid*="review-item" i], [class*="review-item" i], [class*="review-card" i]'
-        ));
+        )).filter(hasProductLine);
         const cards = direct.length ? direct : [];
-        // The date is a stable public field in TikTok review cards. Only walk from a
-        // matching date node to a bounded ancestor inside the confirmed review scope;
-        // never iterate arbitrary page divs.
-        for (const node of scope.querySelectorAll('span, p, time, div')) {
-            const text = normalizedText(node.textContent);
-            if (!DATE_MARKER.test(text) || node.children.length > 0) continue;
+        // Current TikTok markup uses generic utility classes, so no class selector can
+        // identify a review card. Derive the boundary structurally instead: walk up from a
+        // review date to the smallest ancestor that carries this review's own product line
+        // and exactly one rating label. Requiring exactly one label is what stops the walk
+        // from expanding past this card and swallowing its neighbours.
+        for (const node of dateLeafNodes(scope)) {
             let cursor = node.parentElement;
-            for (let level = 0; cursor && cursor !== scope && level < 7; level++, cursor = cursor.parentElement) {
+            for (let level = 0; cursor && cursor !== scope && level < 8; level++, cursor = cursor.parentElement) {
                 const cardText = normalizedText(cursor.innerText || cursor.textContent);
-                if (cardText.length >= 20 && cardText.length <= 2600 && PRODUCT_LABEL.test(cardText)) {
-                    if (!cards.includes(cursor)) cards.push(cursor);
-                    break;
-                }
+                if (cardText.length < 20 || cardText.length > 2600) continue;
+                if (!hasProductLine(cursor)) continue;
+                if (ratingLabelNodes(cursor).length !== 1) continue;
+                if (!cards.includes(cursor)) cards.push(cursor);
+                break;
             }
         }
         return cards.filter(card => isVisible(card));
     }
 
-    function renderedRatingFromCard(card) {
-        const labeledNodes = Array.from(card.querySelectorAll('[aria-label], [data-rating], [data-value]'));
-        for (const node of labeledNodes) {
-            const label = [node.getAttribute('data-rating'), node.getAttribute('data-value'), node.getAttribute('aria-label'), node.textContent]
-                .filter(Boolean).join(' ');
-            const match = normalizedText(label).match(/(?:^|\D)([1-5])\s*(?:stars?|星)(?:\D|$)/i);
-            if (match) return Number(match[1]);
+    // TikTok publishes the rating as an accessible label, e.g. "Rating: 5 out of 5 stars".
+    // Localised builds use other shapes, so match a small set of published forms rather
+    // than a single English phrasing.
+    const RATING_LABEL_PATTERNS = [
+        /(?:^|\D)([1-5])\s*(?:out of|\/|of)\s*5/i,
+        /(?:^|\D)([1-5])\s*(?:stars?|星|分)(?:\D|$)/i,
+        /(?:評分|评分|rating)\s*[:：]?\s*([1-5])(?:\D|$)/i
+    ];
+
+    function elementClassText(node) {
+        // SVG elements expose className as an SVGAnimatedString, which stringifies to
+        // "[object SVGAnimatedString]" and would defeat any class test below.
+        const raw = node && node.className;
+        if (!raw) return '';
+        return String(raw.baseVal !== undefined ? raw.baseVal : raw);
+    }
+
+    function ratingFromLabelNode(node) {
+        if (!node) return 0;
+        const label = [node.getAttribute('data-rating'), node.getAttribute('data-value'), node.getAttribute('aria-label'), node.textContent]
+            .filter(Boolean).join(' ');
+        const text = normalizedText(label);
+        for (const pattern of RATING_LABEL_PATTERNS) {
+            const match = text.match(pattern);
+            if (match) {
+                const value = Number(match[1]);
+                if (value >= 1 && value <= 5) return value;
+            }
         }
-        const textGroups = String(card.innerText || card.textContent || '').match(/[★☆]{1,5}/g) || [];
-        const filledGroup = textGroups.find(group => group.includes('★'));
-        if (filledGroup) {
-            const filled = (filledGroup.match(/★/g) || []).length;
+        return 0;
+    }
+
+    function renderedRatingFromCard(card) {
+        // Primary: the accessible rating label. This is the only source TikTok currently
+        // renders on a product page; the glyph and class paths below are layout fallbacks.
+        for (const node of card.querySelectorAll('[role="img"][aria-label], [aria-label], [data-rating], [data-value]')) {
+            const value = ratingFromLabelNode(node);
+            if (value) return value;
+        }
+        // Secondary: literal star glyphs. Each glyph may sit in its own node, so separators
+        // are collapsed first — matching without collapsing returns a single glyph and would
+        // report every review as 1 star. A trustworthy widget renders all five positions.
+        const glyphText = String(card.innerText || card.textContent || '')
+            .replace(/([★☆])[\s\u200b\u200c\u00b7]+(?=[★☆])/g, '$1');
+        const groups = (glyphText.match(/[★☆]{2,5}/g) || []).sort((a, b) => b.length - a.length);
+        if (groups[0] && groups[0].length === 5) {
+            const filled = (groups[0].match(/★/g) || []).length;
             if (filled >= 1 && filled <= 5) return filled;
         }
+        // Tertiary: explicit filled-star classes.
         const visualStars = Array.from(card.querySelectorAll('[data-e2e*="star" i], [class*="star" i]'));
-        const filledVisualStars = visualStars.filter(node => /(?:filled|active|selected|full|yellow)/i.test(`${node.className || ''} ${node.getAttribute('aria-label') || ''}`)).length;
+        const filledVisualStars = visualStars.filter(node => /(?:filled|active|selected|full|yellow)/i.test(`${elementClassText(node)} ${node.getAttribute('aria-label') || ''}`)).length;
         return filledVisualStars >= 1 && filledVisualStars <= 5 ? filledVisualStars : 0;
     }
 
-    function parseVisibleReviewCard(card, rating) {
+    /**
+     * `expectedRating` of 0 means "no exact-rating scan is running": accept whatever
+     * rating the card itself publishes. A non-zero value keeps the strict contract —
+     * a card that does not render exactly that rating is never collected.
+     */
+    function parseVisibleReviewCard(card, expectedRating) {
         const renderedRating = renderedRatingFromCard(card);
-        if (renderedRating !== Number(rating)) return null;
+        if (!renderedRating) return null;
+        if (expectedRating && renderedRating !== Number(expectedRating)) return null;
+        const rating = renderedRating;
         const lines = String(card.innerText || card.textContent || '')
             .split(/\n+/)
             .map(normalizedText)
@@ -320,22 +461,43 @@
         return { review_id, username, rating, description, variant: sku, sku, country, verified, date, photo_urls: photoUrls };
     }
 
-    function extractVisibleFilteredReviews(expectedRating, filterConfirmed) {
-        // The scan flow already owns filter confirmation. Do not re-derive it from
-        // a transient control label while the list is re-rendering.
-        if (!expectedRating || !filterConfirmed) return 0;
+    /**
+     * Reads the review cards TikTok has already rendered on the page the user opened.
+     * `expectedRating` of 0 reads every visible card; a non-zero value is only honoured
+     * once the scan flow has numerically confirmed that exact rating.
+     */
+    /**
+     * A fingerprint of the review dates currently rendered. It changes when TikTok swaps in
+     * a new page of results, which lets a page advance be detected even when the pager's
+     * active-page marker cannot be read.
+     */
+    function renderedReviewSignature() {
+        const scope = findVisibleReviewScope();
+        if (!scope) return '';
+        return dateLeafNodes(scope).map(node => normalizedText(node.textContent)).join('|');
+    }
+
+    function extractVisibleReviews(expectedRating, filterConfirmed) {
+        if (expectedRating && !filterConfirmed) return 0;
         const scope = findVisibleReviewScope();
         if (!scope || !isVisible(scope)) return 0;
         let added = 0;
         for (const card of visibleReviewCandidateCards(scope)) {
-            const review = parseVisibleReviewCard(card, expectedRating);
-            if (review && !reviewStore.has(review.review_id)) {
-                reviewStore.set(review.review_id, review);
-                added++;
-            }
+            const review = parseVisibleReviewCard(card, expectedRating || 0);
+            if (!review || reviewStore.has(review.review_id)) continue;
+            if (!isRatingInScanRange(review.rating)) continue;
+            reviewStore.set(review.review_id, review);
+            added++;
         }
-        debug('Visible confirmed filtered reviews processed', { rating: expectedRating, added, total: reviewStore.size });
+        debug('Visible reviews processed', { rating: expectedRating || 'any', added, total: reviewStore.size });
         return added;
+    }
+
+    function extractVisibleFilteredReviews(expectedRating, filterConfirmed) {
+        // The scan flow already owns filter confirmation. Do not re-derive it from
+        // a transient control label while the list is re-rendering.
+        if (!expectedRating || !filterConfirmed) return 0;
+        return extractVisibleReviews(expectedRating, true);
     }
 
     // ==================== Source 2: intercepted API responses ====================
@@ -378,6 +540,32 @@
         return null;
     }
 
+    const PREV_LABELS = /^(prev|previous|上一個|上一个|anterior|précédent|zurück|precedente|vorige|sebelumnya|trước|ก่อนหน้า|이전|前へ|السابق)$/i;
+
+    /**
+     * TikTok's review pager is built from plain divs with utility classes only: no
+     * pagination class, no role, no rel, and no aria-label. None of the attribute
+     * selectors above can see it, so it is identified structurally instead — a small
+     * container that holds both a previous and a next label plus numeric page items.
+     * The search is bounded to the review area; it never scans the whole page.
+     */
+    function reviewPaginationScope() {
+        const scope = findVisibleReviewScope();
+        if (!scope) return null;
+        for (const node of scope.querySelectorAll('nav, ul, div')) {
+            const text = normalizedText(node.innerText || node.textContent);
+            if (!text || text.length > 140) continue;
+            const parts = text.split(' ');
+            if (!parts.some(part => PREV_LABELS.test(part)) || !parts.some(part => NEXT_LABELS.test(part))) continue;
+            const numericItems = Array.from(node.querySelectorAll('*'))
+                .filter(item => item.children.length === 0 && /^\d{1,4}$/.test(normalizedText(item.textContent)));
+            if (numericItems.length < 2) continue;
+            if (!isVisible(node)) continue;
+            return node;
+        }
+        return null;
+    }
+
     function paginationScopes() {
         const scopes = [];
         for (const selector of SELECTORS.paginationContainers) {
@@ -385,6 +573,8 @@
                 if (isVisible(element) && !scopes.includes(element)) scopes.push(element);
             });
         }
+        const reviewPager = reviewPaginationScope();
+        if (reviewPager && !scopes.includes(reviewPager)) scopes.push(reviewPager);
         return scopes;
     }
 
@@ -415,10 +605,28 @@
     function isDisabledPaginationControl(element) {
         if (!element) return true;
         const control = element.closest('button, [role="button"], [aria-disabled], [class*="pagination" i]') || element;
-        const classText = `${control.className || ''} ${element.className || ''}`;
+        const classText = `${elementClassText(control)} ${elementClassText(element)}`;
         return control.disabled === true
             || control.getAttribute('aria-disabled') === 'true'
-            || /\b(disabled|is-disabled|not-allowed)\b/i.test(classText);
+            // TikTok marks a spent pager control by switching its text colour to the
+            // placeholder token rather than by setting a disabled attribute or class.
+            || /\b(disabled|is-disabled|not-allowed|UITextPlaceholder|UIText4)\b/i.test(classText);
+    }
+
+    /**
+     * Returns the clickable wrapper that carries a pager label. TikTok renders the label
+     * in a leaf div inside a `cursor-pointer` wrapper, so clicking the leaf alone can miss
+     * the handler.
+     */
+    function pagerControlByLabel(scope, labels) {
+        if (!scope) return null;
+        for (const node of scope.querySelectorAll('div, span, button, a, li')) {
+            const text = normalizedText(node.getAttribute('aria-label') || node.innerText || node.textContent);
+            if (!labels.test(text)) continue;
+            const clickable = node.closest('[class*="cursor-pointer"]') || node;
+            if (isVisible(clickable) && !isDisabledPaginationControl(clickable)) return clickable;
+        }
+        return null;
     }
 
     function findNextButton() {
@@ -434,6 +642,13 @@
                     lastPaginationStrategy = 'scoped-localized-label';
                     return control;
                 }
+            }
+            // TikTok's pager label sits in a leaf div inside a cursor-pointer wrapper, so
+            // the wrapper is the element that actually carries the handler.
+            const wrapped = pagerControlByLabel(scope, NEXT_LABELS);
+            if (wrapped) {
+                lastPaginationStrategy = 'review-pager-wrapper';
+                return wrapped;
             }
         }
         // Last resort: semantic controls only. Never iterate every div on the product page.
@@ -454,13 +669,30 @@
             const page = pageNumberFromElement(current?.element);
             if (Number.isInteger(page)) return page;
         }
+        // TikTok marks the active page with a background highlight class instead of
+        // aria-current, so the attribute selectors above find nothing.
+        const pager = reviewPaginationScope();
+        if (pager) {
+            const items = Array.from(pager.querySelectorAll('*'))
+                .filter(item => /^\d{1,4}$/.test(normalizedText(item.textContent)) && item.children.length === 0);
+            for (const item of items) {
+                const wrapper = item.closest('[class*="background-color"], [class*="bg-"]');
+                if (wrapper && pager.contains(wrapper)) {
+                    const page = parseInt(normalizedText(item.textContent), 10);
+                    if (Number.isInteger(page)) return page;
+                }
+            }
+        }
         return null;
     }
 
     function getLastPageNumber() {
         let highest = 0;
         for (const scope of paginationScopes()) {
-            for (const element of scope.querySelectorAll('[data-page], [aria-label], button, a, span')) {
+            // `div` is included because TikTok's page numbers are plain divs. This stays
+            // safe because the query is bounded to a confirmed pagination container.
+            for (const element of scope.querySelectorAll('[data-page], [aria-label], button, a, span, div')) {
+                if (element.children.length > 0) continue;
                 const page = pageNumberFromElement(element);
                 if (Number.isInteger(page) && page > highest) highest = page;
             }
@@ -772,6 +1004,7 @@
             this.nativeRatingActive = false;
             this.reviewMetrics = readReviewMetrics();
             requiredNativeRating = exactNativeRating;
+            activeRatingRange = { min: minStars, max: maxStars };
             let page = Math.max(1, Math.min(100, parseInt(this.resumePage, 10) || 1));
             // Requested page is an extension-owned state value. A visible active-page control,
             // when present, is observational only and never inferred from CSS styling.
@@ -880,10 +1113,13 @@
                 maxPages = Math.min(100, Math.max(page, targetBudget.estimatedPages));
                 this.options.maxPages = maxPages;
                 this.options.targetReviews = targetBudget.targetReviews;
-                // Page 1 data is embedded in the document for unfiltered/range scans.
+                // Page 1 data is embedded in the document for unfiltered/range scans. The
+                // embedded blob holds only the first few reviews, so the rendered cards are
+                // read as well; both paths apply the requested star range.
                 const embedded = extractEmbeddedReviews();
                 const added = addReviews(embedded);
-                debug('Embedded page-one reviews processed', { received: embedded.length, added });
+                const visible = extractVisibleReviews(0, false);
+                debug('Page-one reviews processed', { received: embedded.length, added, visible });
                 this.saveReviews();
             }
             this.setState('running', `Page ${page}: ${reviewStore.size} reviews collected`, Math.round((page / maxPages) * 100));
@@ -903,12 +1139,28 @@
                         this.pauseForPaginationSelector(page, maxPages, diagnostics);
                         return;
                     }
-                    debug('No enabled next-page control; pagination finished.');
-                    break;
+                    // Many TikTok Shop review lists publish no pagination control at all:
+                    // further reviews appear as the reader scrolls. Absence of a next button
+                    // is therefore not proof that the results have ended.
+                    const grewByScrolling = await this.collectByScrolling();
+                    if (this.stopRequested || this.paused) return;
+                    if (!grewByScrolling) {
+                        debug('No next-page control and no further reviews loaded on scroll; finished.');
+                        break;
+                    }
+                    page += 1;
+                    this.resumePage = page;
+                    this.saveReviews();
+                    this.setState('running',
+                        `Loaded ${reviewStore.size} reviews by scrolling`,
+                        Math.min(95, Math.round((page / maxPages) * 100)));
+                    await sleep(PACING.betweenPages);
+                    continue;
                 }
 
                 const currentPage = page;
                 const beforeCount = reviewStore.size;
+                const beforeSignature = renderedReviewSignature();
                 this.requestedPage = currentPage + 1;
                 nextBtn.scrollIntoView({ block: 'center', behavior: 'instant' });
                 await sleep(PACING.pageClickSettling);
@@ -923,7 +1175,21 @@
                     waited += PACING.responsePoll;
                     verificationPrompt = getVerificationMessage();
                     const visiblePage = getCurrentPageNumber();
-                    pageAdvanced = Number.isInteger(visiblePage) && visiblePage >= currentPage + 1;
+                    // TikTok's pager marks the active page with a highlight class that may not
+                    // resolve on every layout, so a changed result set counts as an advance too.
+                    const resultsSwapped = Boolean(beforeSignature) && renderedReviewSignature() !== beforeSignature;
+                    pageAdvanced = (Number.isInteger(visiblePage) && visiblePage >= currentPage + 1) || resultsSwapped;
+                    // The interceptor does not always observe a response for a client-rendered
+                    // page change, so the cards TikTok has just rendered are read directly as
+                    // well. Without this, an advanced page that produced no intercepted
+                    // response looked identical to the end of the results, and the scan
+                    // finished on page one.
+                    if (pageAdvanced) {
+                        extractVisibleReviews(
+                            this.nativeRatingActive ? requiredNativeRating : 0,
+                            this.nativeRatingActive
+                        );
+                    }
                     // A visible page change alone is not sufficient: TikTok may render the new page
                     // before its review API response reaches the interceptor. Keep waiting for data
                     // (or a visible verification prompt) until the conservative timeout expires.
@@ -981,6 +1247,55 @@
             this.setState('completed', targetReached
                 ? `Review target reached: ${reviewStore.size} reviews collected.`
                 : `Completed: ${reviewStore.size} reviews from ${page} page(s)`, 100);
+        },
+
+        /**
+         * Bounded scroll-and-collect for review lists that expose no pagination control.
+         * It scrolls only the page the user already opened, re-reads what TikTok has
+         * rendered, and returns as soon as a batch stops producing new reviews. It never
+         * retries past its own ceiling and always yields to a verification prompt.
+         */
+        async collectByScrolling() {
+            const before = reviewStore.size;
+            const scope = findVisibleReviewScope();
+            const scroller = scrollContainerFor(scope || document.body);
+            let renderedBefore = dateLeafNodes(scope || document.body).length;
+            for (let attempt = 0; attempt < 3 && !this.stopRequested && !this.paused; attempt++) {
+                const reachedEnd = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
+                scroller.scrollTop = scroller.scrollHeight;
+                const anchors = dateLeafNodes(scope || document.body);
+                const last = anchors[anchors.length - 1];
+                if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+                await sleep(PACING.pageClickSettling);
+
+                // A list that renders no additional cards after a full scroll to the end is
+                // simply not a lazy-loading list. Probe briefly, then stop; a long wait here
+                // would stall every scan on a page that shows a fixed set of reviews.
+                const budget = attempt === 0 ? PACING.responseWait : PACING.responsePoll * 4;
+                let waited = 0;
+                while (waited < budget && !this.stopRequested && !this.paused) {
+                    await sleep(PACING.responsePoll);
+                    waited += PACING.responsePoll;
+                    if (getVerificationMessage()) return reviewStore.size > before;
+                    // The interceptor may already have supplied the new batch; reading the
+                    // rendered cards covers the case where it did not observe a response.
+                    extractVisibleReviews(
+                        this.nativeRatingActive ? requiredNativeRating : 0,
+                        this.nativeRatingActive
+                    );
+                    if (reviewStore.size > before) {
+                        this.saveReviews();
+                        return true;
+                    }
+                }
+                const renderedNow = dateLeafNodes(scope || document.body).length;
+                if (reachedEnd && renderedNow === renderedBefore) {
+                    debug('Review list rendered no additional cards at its end; not a lazy-loading list.');
+                    break;
+                }
+                renderedBefore = renderedNow;
+            }
+            return reviewStore.size > before;
         },
 
         pauseForVerification(page, maxPages, promptText) {

@@ -7,7 +7,7 @@
     --surface-selected: #dbeafe;
     --ink: #162033;
     --muted: #4f5f78;
-    --soft: #65738a;
+    --soft: #556278;
     --border: #d7deea;
     --border-strong: #9cacbf;
     --brand: #2563eb;
@@ -15,13 +15,14 @@
     --brand-soft: #dbeafe;
     --gold: #a65f00;
     --gold-soft: #fff0ca;
-    --success: #087f5b;
+    --success: #056045;
     --success-soft: #d8f5e8;
     --danger: #c1273f;
     --danger-soft: #fee1e5;
     --focus: #0d6efd;
     --on-brand: #ffffff;
-    --on-gold: #1f1600;
+    --on-gold: #ffffff;
+    --on-gold-soft: #5a3400;
     --overlay: rgba(12, 20, 34, .42);
     --shadow-dialog: 0 24px 72px rgba(20, 31, 50, .24);
     --shadow-surface: 0 8px 24px rgba(20, 31, 50, .07);
@@ -54,6 +55,7 @@
     --focus: #9cc0ff;
     --on-brand: #0b1425;
     --on-gold: #171104;
+    --on-gold-soft: #ffd166;
     --overlay: rgba(0, 0, 0, .62);
     --shadow-dialog: 0 28px 76px rgba(0, 0, 0, .55);
     --shadow-surface: none;
@@ -197,6 +199,20 @@ a { color: var(--brand); }
 .panel-toolbar h2 { font-size: 19px; }
 .sort-field { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
 select, input, textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+/* Chrome paints an autofilled field with its own light background, which wins over the
+   surface token and leaves a bright box in the dark theme. An inset shadow is the only way
+   to repaint it; the long transition keeps Chrome from flashing its colour back. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+    -webkit-text-fill-color: var(--ink);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+    caret-color: var(--ink);
+    transition: background-color 9999s ease-in-out 0s;
+}
 select, input { min-height: 37px; padding: 8px 10px; }
 textarea { padding: 10px; resize: vertical; }
 .sort-field select { width: 146px; }
@@ -303,7 +319,10 @@ tbody tr.is-selected { background: var(--surface-selected); box-shadow: inset 3p
 .shopify-validation { margin: 8px 0 10px; padding: 10px; color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 12px; }
 .shopify-validation.is-error { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 .shopify-validation.is-success { color: var(--success); border-color: var(--success); background: var(--success-soft); }
-.shopify-validation.is-warning { color: var(--on-gold); border-color: var(--gold); background: var(--gold-soft); }
+/* `--on-gold` is the text colour for a solid `--gold` chip. Reusing it on the `--gold-soft`
+   panel rendered near-black on dark olive in the dark theme, so this panel gets its own
+   token — one that stays readable against a soft background in both themes. */
+.shopify-validation.is-warning { color: var(--on-gold-soft); border-color: var(--gold); background: var(--gold-soft); }
 .export-helper { margin: 12px 0 0; color: var(--soft); font-size: 11px; text-align: center; }
 .bug-report label:not(.bug-diagnostics) { display: grid; gap: 5px; padding: 0 12px; color: var(--ink); font-size: 12px; font-weight: 750; }
 .bug-report textarea { margin-top: 4px; }

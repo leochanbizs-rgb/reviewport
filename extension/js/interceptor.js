@@ -18,6 +18,13 @@
         /^(?:[a-z0-9-]+\.)*tiktokv\.com$/i
     ];
     const REVIEW_LIST_PATHS = [
+        // TikTok Shop desktop serves the review block inside the product page data
+        // response. The path contains no "review" segment, so the older patterns below
+        // never matched it and no review response was ever observed on these pages.
+        // Region segment is optional: /api/shop/pdp_desktop/page_data and
+        // /api/shop/us/pdp_desktop/page_data are both in use.
+        /\/api\/(?:v\d+\/)?shop\/(?:[a-z]{2}\/)?pdp(?:_desktop)?\/page_data\/?$/i,
+        /\/api\/(?:v\d+\/)?shop\/(?:[a-z]{2}\/)?pdp(?:_desktop)?\/(?:get_)?review(?:_list|s)?\/?$/i,
         /\/api\/(?:v\d+\/)?(?:shop\/)?product\/review\/(?:list|get_review_list)\/?$/i,
         /\/api\/(?:v\d+\/)?(?:shop\/)?review\/(?:list|get_review_list)\/?$/i,
         /\/api\/(?:v\d+\/)?(?:ecommerce\/)?review\/(?:list|get_review_list)\/?$/i,
