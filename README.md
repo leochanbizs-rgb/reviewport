@@ -1,60 +1,74 @@
 # ReviewPort for TikTok Shop
 
-ReviewPort is a **free, local-first Chrome extension** for scanning and organising reviews already visible on a TikTok Shop product page you open. It runs in your browser, requires no ReviewPort account, and does not operate a remote ReviewPort review service.
+**ReviewPort** is a Manifest V3 Chrome extension that helps a user collect review data from a TikTok Shop product page they open, inspect it locally, and export it to CSV or Markdown. It is an independent tool and is **not affiliated with, endorsed by, or sponsored by TikTok, TikTok Shop, Google, Shopify, Judge.me, or any Shopify review-app provider**.
 
-> ReviewPort is an independent tool. It is not affiliated with, endorsed by, or sponsored by TikTok, TikTok Shop, Google, Shopify, Judge.me, or any Shopify review-app provider.
+> Review data is processed in the browser. ReviewPort does not call an AI service, transmit review content to a developer server, generate replacement usernames, translate reviews, or bypass TikTok verification.
 
 ## Current download
 
-**Current version: v5.4.0**  
-**Distribution: GitHub ZIP only. ReviewPort is not published in the Chrome Web Store.**
+The current release is **v5.6.0**. Download the package from the [GitHub Releases page](https://github.com/leochanbizs-rgb/reviewport/releases/tag/v5.6.0), not from a raw branch link. The release notes include the ZIP SHA-256 so a download can be verified.
 
-1. Download [ReviewPort v5.4.0 ZIP](https://github.com/leochanbizs-rgb/reviewport/raw/refs/heads/main/reviewport-v5.4.0.zip).
-2. Unzip it to a folder you can keep.
-3. Open `chrome://extensions` in Google Chrome.
-4. Turn on **Developer mode**.
-5. Select **Load unpacked**.
-6. Choose the unzipped folder that contains `manifest.json`.
-7. Pin ReviewPort from Chrome’s Extensions menu.
-8. Open a TikTok Shop product page, open its review area, then select the ReviewPort toolbar icon.
+## How it works
 
-To update, download the latest GitHub ZIP, unzip it, then select **Reload** on the ReviewPort card in `chrome://extensions` after selecting the new unzipped folder.
+When the user starts a scan on a TikTok Shop product page, ReviewPort processes embedded review information and observes bounded TikTok Shop review-list responses **only during that scan**. The observer is limited to review-list paths on TikTok-owned domains, ignores oversized or unrelated responses, and is removed when the scan completes, pauses, stops, or errors. Review data remains in `chrome.storage.local` until the user exports, clears it, or the local seven-day cleanup removes it.
 
-## What v5.4.0 does
+For an exact rating scan, ReviewPort first operates TikTok's visible native rating control. It only starts collecting after the visible matching-result count numerically matches the selected rating's visible histogram count. If that contract cannot be confirmed, it pauses rather than scanning all ratings. If TikTok renders a numerically confirmed first page without a compatible observable response, ReviewPort can read only the currently visible, bounded filtered review cards; it never fills an exact-rating scan from unfiltered SSR data.
 
-| Capability | What it helps you do |
+| Workflow | What the user does | What ReviewPort does locally |
+|---|---|---|
+| Scan | Sets a rating range and a **Reviews to collect** target | Derives an internal page budget from TikTok's visible matching count, capped at 100 pages. |
+| Review | Opens Review Studio after a completed or stopped scan | Shows the saved sample, a numeric `N / 5` score, Variant, full review text, and buyer photos. |
+| Export | Opens Export files only when ready | Produces a Custom CSV, Markdown, or validated Shopify review-app CSV locally. |
+
+## Install locally
+
+1. Download and unzip the release asset from GitHub Releases.
+2. Open `chrome://extensions` in Chrome and enable **Developer mode**.
+3. Select **Load unpacked**.
+4. Choose the unzipped **`extension/`** folder.
+5. Open a TikTok Shop product page, scroll to reviews, and select the ReviewPort toolbar icon.
+
+To update an existing unpacked installation, replace the unzipped release folder and choose **Reload** in `chrome://extensions`.
+
+## Key safeguards
+
+| Safeguard | Behavior |
 |---|---|
-| Local review scan | Start a scan from the TikTok Shop product page you chose, with a page limit of up to 100 pages. |
-| Pause and stop controls | Pause or stop the scan when your research task changes. |
-| Five-point rating view | Read reviews through the extension’s five-point rating organisation. |
-| Review Studio | Inspect the locally saved review set before deciding what to do next. |
-| Local exports | Create local CSV or Markdown output, or select an available Shopify review-app export format where your own product mapping is complete. |
-| Verification-safe workflow | Pause for a TikTok verification request; ReviewPort does not bypass verification. |
-
-## Local processing and retention
-
-ReviewPort acts only after you start a scan on a supported TikTok Shop product page. Review data and preferences are kept in Chrome extension storage on your device. You can clear saved results, and the extension is designed to clean up saved review data after seven days.
-
-ReviewPort does not require an account, API key, ReviewPort cloud service, AI service, translation service, or remote review database. Any export, spreadsheet import, or external AI handoff is a separate action that you choose and control.
+| Exact-rating scans | Fail closed if TikTok's visible count contract is not confirmed; never falls back to all ratings. |
+| Verification | Pauses safely for the user to complete any TikTok verification manually; it never bypasses verification. |
+| Usernames | Preserves TikTok-displayed masked usernames such as `X**e`; never fabricates names. |
+| Photos | Photos only is off by default. Buyer images remain third-party URLs and can expire; strict Shopify formats accept only supported public URLs. |
+| Shopify product matching | TikTok product specification is stored as **Variant**, never treated as a Shopify SKU. Where required, the merchant supplies a Shopify product handle or Product ID. |
+| Review data | Retained locally only. The bug-report tool creates a user-reviewed `mailto:` draft and excludes review content, usernames, and photos by default. |
 
 ## Permissions
 
-| Permission | Why ReviewPort needs it |
+| Permission | Purpose |
 |---|---|
-| `activeTab` | Work with the TikTok Shop tab you actively select. |
-| `scripting` | Connect the local extension workflow to the active page. |
-| `storage` | Keep local settings and saved scan records in your browser. |
-| `alarms` | Run the scheduled local cleanup for saved records. |
-| `https://shop.tiktok.com/*` | Limit the page workflow to supported TikTok Shop URLs. |
+| `activeTab` | Works with the current TikTok Shop tab only after the user opens the extension. |
+| `scripting` | Reconnects the content script to a product page loaded before ReviewPort. |
+| `storage` | Keeps local scan state, preferences, and reviews. |
+| `alarms` | Schedules the local seven-day cleanup. |
+| `https://shop.tiktok.com/*` | Restricts page access to TikTok Shop. |
 
-Read [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the data boundary and [CHANGELOG.md](CHANGELOG.md) for confirmed version history.
+`js/interceptor.js` is a packaged extension script injected into the page context. It is not remotely hosted code and ReviewPort does not execute remote code.
 
-## Support
+## Limitations
 
-For reproducible bugs, open a [GitHub Issue](https://github.com/leochanbizs-rgb/reviewport/issues) with the ReviewPort version, Chrome version, page type, steps, and visible error. Do not include personal orders, customer data, account credentials, or private URLs.
+The interface is currently English-only. TikTok Shop can change its DOM, review-list response path, pagination, or access controls at any time. The extension keeps an internal 100-page safety limit; TikTok commonly renders only a small number of reviews per page, so a large product's scan can still be a sample rather than its full review history. ReviewPort does not bypass verification and should only be used with pages and review data the user is entitled to access.
 
-For setup questions, email [leochanbizs@gmail.com](mailto:leochanbizs@gmail.com).
+## Repository layout
+
+```text
+extension/    Manifest V3 runtime source; package this folder's contents only
+docs/         Technical specs, page observations, QA notes, and release evidence
+store-assets/ Chrome Web Store artwork; never include it in the extension ZIP
+```
+
+## Privacy and support
+
+See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the full local-processing policy. For help, use the bug-report draft in Review Studio; it is addressed to `leochanbizs@gmail.com` and is only sent after the user reviews and confirms it.
 
 ## License
 
-ReviewPort is available under the [MIT License](LICENSE).
+[MIT](LICENSE)

@@ -13,6 +13,7 @@
     let visibleCount = PAGE_SIZE;
     let selectedReviewKey = null;
     let selectedPhotoIndex = 0;
+    let selectionTrigger = null;
     let savedState = {
         scrapingState: null,
         lastUpdated: '',
@@ -170,6 +171,8 @@
                 minStars: result.minStars || 1,
                 maxStars: result.maxStars || 5,
                 onlyWithImages: Boolean(result.onlyWithImages),
+                reviewMetrics: result.scrapingState?.reviewMetrics || null,
+                scanOptions: result.scrapingState?.options || {},
                 customExportColumns: CSVExporter.normalizeExplorerColumns(result.customExportColumns),
                 shopifySettings: loadShopifySettings(result)
             };
@@ -199,14 +202,16 @@
         const username = String(review.username || '').trim();
         const date = String(review.date || '').trim();
         const sku = String(review.sku || '').trim();
+        const variant = String(review.variant || sku).trim();
         const rating = Math.max(0, Math.min(5, parseInt(review.rating, 10) || 0));
-        const key = String(review.review_id || `${username}::${date}::${sku}::${description.slice(0, 120)}`);
+        const key = String(review.review_id || `${username}::${date}::${variant}::${description.slice(0, 120)}`);
         return {
             ...review,
             key,
             username,
             description,
             sku,
+            variant,
             date,
             rating,
             photos: ReviewClassifier.photoUrls(review).filter(isSafeImageUrl)
@@ -247,8 +252,13 @@
             : 'No saved reviews yet. Start a scan from a TikTok Shop product page.';
 
         const filters = `${savedState.minStars}–${savedState.maxStars} stars${savedState.onlyWithImages ? ' · photos only' : ''}`;
+        const metrics = savedState.reviewMetrics;
+        const denominator = Number.isFinite(metrics?.displayed) ? metrics.displayed : metrics?.total;
+        const coverage = denominator > 0 ? ` · ${total} of ${denominator} matching reviews (${((total / denominator) * 100).toFixed(1)}%)` : '';
+        const target = Number(savedState.scanOptions?.targetReviews) || 0;
+        const targetNote = target ? ` · target ${target}` : '';
         const updated = savedState.lastUpdated ? `Last saved ${formatLocalTime(savedState.lastUpdated)}.` : 'No scan timestamp available.';
-        elements.scanContext.textContent = total ? `${filters} · ${updated}` : 'Data stays in your browser until you export or clear it.';
+        elements.scanContext.textContent = total ? `${filters}${coverage}${targetNote} · ${updated}` : 'Data stays in your browser until you export or clear it.';
 
         const paused = savedState.scrapingState && (savedState.scrapingState.status || savedState.scrapingState.state) === 'paused';
         elements.pausedBanner.hidden = !paused;
@@ -438,12 +448,11 @@
 
     function currentShopifyValidation(settings) {
         const format = settings.format;
-        const hasSkuForEveryReview = reviews.length > 0 && reviews.every(review => Boolean(review.sku));
         if ((format === 'loox' || format === 'ryviu') && !settings.productHandle) {
             return 'Step 2: add the Shopify product handle shown in your store URL before downloading this CSV.';
         }
-        if ((format === 'okendo' || format === 'opinew') && !(settings.productHandle || settings.productId || hasSkuForEveryReview)) {
-            return 'Step 2: add a product handle or Product ID, unless every saved review already has a SKU.';
+        if ((format === 'okendo' || format === 'opinew') && !(settings.productHandle || settings.productId)) {
+            return 'Step 2: add your Shopify product handle or Product ID. TikTok variant text is not used as a Shopify SKU.';
         }
         if (format === 'stamped' && !(settings.productId && settings.productUrl && settings.productImageUrl && settings.productTitle)) {
             return 'Step 2: open “My app needs more product details” and add the Product ID, URL, image URL, and title required by Stamped.';
@@ -464,22 +473,22 @@
         const descriptions = {
             judge_me: 'Judge.me CSV. Leave all product details blank only for a store review. Images are limited to 5 supported public links.',
             loox: 'Loox CSV. Requires the Shopify product handle and uses YYYY-MM-DD dates. Images are limited to 5 supported public links.',
-            okendo: 'Okendo CSV. Uses product handle, product ID, or the original SKU. New imports stay pending by default.',
-            opinew: 'Opinew CSV. Uses product ID, product handle, or SKU. New imports stay unpublished by default.',
+            okendo: 'Okendo CSV. Uses your Shopify product handle or Product ID. TikTok variant text is kept for review context, not used as a Shopify SKU. New imports stay pending by default.',
+            opinew: 'Opinew CSV. Uses your Shopify product ID or product handle. TikTok variant text is kept for review context, not used as a Shopify SKU. New imports stay unpublished by default.',
             ryviu: 'Ryviu CSV. Requires the Shopify product handle. New imports stay disabled by default.',
             yotpo: 'Yotpo mapping CSV. Product reviews need Product ID, country, and an explicit local technical-email confirmation.',
             stamped: 'Stamped CSV. Requires advanced Shopify product details before a file can be created.',
-            fera: 'Fera sample mapping CSV. Product ID is optional; leaving it blank creates a store-review mapping.'
+            fera: 'Fera sample mapping CSV, not an official Fera import template. Product ID is optional; confirm the current Fera schema before importing.'
         };
         const guidance = {
             judge_me: 'For a store review, you can skip product matching. Add a handle only when you want the review attached to a Shopify product.',
             loox: 'Loox needs the Shopify product handle. You do not need a Product ID for this format.',
-            okendo: 'Okendo can match by product handle, Product ID, or the original SKU on every saved review.',
-            opinew: 'Opinew can match by Product ID, product handle, or the original SKU on every saved review.',
+            okendo: 'Okendo needs your Shopify product handle or Product ID. TikTok variant text cannot verify a Shopify SKU.',
+            opinew: 'Opinew needs your Shopify Product ID or product handle. TikTok variant text cannot verify a Shopify SKU.',
             ryviu: 'Ryviu needs the Shopify product handle. You do not need a Product ID for this format.',
             yotpo: 'Yotpo product reviews need a Product ID. Open Yotpo needs extra confirmation below.',
             stamped: 'Stamped needs Product ID plus the extra product details in the expanded section below.',
-            fera: 'Fera can use an optional Product ID. Leave it blank for a store-review mapping.'
+            fera: 'This is a sample mapping, not an official Fera template. Use an optional Product ID only after confirming Fera’s current import requirements.'
         };
         const handleOnlyFormats = new Set(['loox', 'ryviu']);
         const idOnlyFormats = new Set(['yotpo', 'stamped', 'fera']);
@@ -491,14 +500,14 @@
             ? 'Required for this app'
             : settings.format === 'judge_me'
                 ? 'Optional for a product review'
-                : 'Handle, ID, or SKU accepted';
+                : 'Handle or ID required';
         elements.productIdRequirement.textContent = settings.format === 'stamped'
             ? 'Required for Stamped'
             : settings.format === 'yotpo'
                 ? (settings.yotpoScope === 'product' ? 'Required for Yotpo product reviews' : 'Optional for site reviews')
                 : settings.format === 'fera'
                     ? 'Optional for Fera'
-                    : 'Handle, ID, or SKU accepted';
+                    : 'Handle or ID required';
         elements.shopifyFormatBadge.textContent = `${CSVExporter.SHOPIFY_FORMATS[settings.format] || 'Shopify'} import`;
         elements.shopifyFormatDescription.textContent = descriptions[settings.format] || 'ReviewPort validates the required fields before exporting.';
         elements.shopifyMatchGuidance.textContent = guidance[settings.format] || 'Only fill in the fields required by the app you selected.';
@@ -507,12 +516,32 @@
         const issue = currentShopifyValidation(settings);
         const progress = elements.shopifyProgress?.querySelectorAll('li');
         progress?.forEach((step, index) => step.classList.toggle('is-active', index === (issue ? 1 : 2)));
-        setShopifyValidation(issue || 'Everything required is ready. Download your local Shopify CSV when you are ready.', issue ? 'error' : 'success');
+        if (issue) {
+            setShopifyValidation(issue, 'error');
+        } else {
+            const imageDiagnostics = previewImageDiagnostics(settings.format);
+            const imageNote = imageDiagnostics.skippedImages
+                ? ` ${imageDiagnostics.skippedImages} of ${imageDiagnostics.totalImages} captured image URL${imageDiagnostics.totalImages === 1 ? '' : 's'} will be skipped because this format only accepts public JPG/PNG URLs or has a photo limit.`
+                : imageDiagnostics.totalImages
+                    ? ` ${imageDiagnostics.totalImages} compatible image URL${imageDiagnostics.totalImages === 1 ? '' : 's'} will be included within this format’s photo limit.`
+                    : ' No buyer image URLs are saved in this review set.';
+            setShopifyValidation(`Everything required is ready. Download your local Shopify CSV when you are ready.${imageNote}`, imageDiagnostics.skippedImages ? 'warning' : 'success');
+        }
+    }
+
+    function previewImageDiagnostics(format) {
+        const diagnostics = { skippedImages: 0, totalImages: 0 };
+        const maxPhotos = ShopifyReviewConverter.FORMAT_META[format]?.maxPhotos ?? 0;
+        reviews.forEach(review => ShopifyReviewConverter.compatiblePhotos(review, maxPhotos, diagnostics));
+        return diagnostics;
     }
 
     function setShopifyValidation(message, type = '') {
         elements.shopifyValidation.textContent = message;
         elements.shopifyValidation.dataset.type = type;
+        elements.shopifyValidation.classList.toggle('is-error', type === 'error');
+        elements.shopifyValidation.classList.toggle('is-success', type === 'success');
+        elements.shopifyValidation.classList.toggle('is-warning', type === 'warning');
     }
 
     function renderTable() {
@@ -549,11 +578,11 @@
         row.dataset.reviewKey = review.key;
         row.setAttribute('aria-label', `Open details for review from ${review.username || 'unknown reviewer'} rated ${review.rating || 0} stars`);
         if (review.key === selectedReviewKey) row.classList.add('is-selected');
-        row.addEventListener('click', () => selectReview(review.key));
+        row.addEventListener('click', () => selectReview(review.key, row));
         row.addEventListener('keydown', event => {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                selectReview(review.key);
+                selectReview(review.key, row);
             }
         });
 
@@ -576,11 +605,11 @@
         row.appendChild(ratingCell);
 
         const skuCell = document.createElement('td');
-        if (review.sku) {
+        if (review.variant || review.sku) {
             const sku = document.createElement('span');
             sku.className = 'sku-label';
-            sku.title = review.sku;
-            sku.textContent = review.sku;
+                sku.title = review.variant || review.sku;
+                sku.textContent = review.variant || review.sku;
             skuCell.appendChild(sku);
         } else {
             skuCell.appendChild(textCell('—', 'sku-empty').firstChild);
@@ -607,18 +636,23 @@
         return cell;
     }
 
-    function selectReview(key) {
+    function selectReview(key, trigger = document.activeElement) {
         selectedReviewKey = key;
         selectedPhotoIndex = 0;
+        selectionTrigger = trigger instanceof HTMLElement ? trigger : null;
         renderTable();
         renderSelection();
+        window.setTimeout(() => elements.detailContent.focus({ preventScroll: true }), 0);
     }
 
     function clearSelection() {
+        const restoreTarget = selectionTrigger;
         selectedReviewKey = null;
         selectedPhotoIndex = 0;
+        selectionTrigger = null;
         renderTable();
         renderSelection();
+        window.setTimeout(() => restoreTarget?.focus({ preventScroll: true }), 0);
     }
 
     function selectedReview() {
@@ -636,7 +670,7 @@
         elements.detailReviewer.textContent = review.username || 'Unknown reviewer';
         elements.detailRating.textContent = `${review.rating || 0} / 5 stars`;
         elements.detailDate.textContent = review.date || 'No date';
-        elements.detailSku.textContent = review.sku || 'No SKU recorded';
+        elements.detailSku.textContent = review.variant || review.sku || 'No variant recorded';
         elements.detailText.textContent = review.description || 'No written review was provided.';
         renderPhotos(review);
     }
@@ -671,6 +705,7 @@
             button.type = 'button';
             button.className = `thumbnail-button${index === selectedPhotoIndex ? ' is-active' : ''}`;
             button.setAttribute('aria-label', `View buyer photo ${index + 1} of ${review.photos.length}`);
+            button.setAttribute('aria-pressed', String(index === selectedPhotoIndex));
             button.addEventListener('click', () => {
                 selectedPhotoIndex = index;
                 renderPhotos(review);
@@ -720,11 +755,15 @@
     }
 
     function handleKeyboardNavigation(event) {
+        if (event.key === 'Escape' && selectedReviewKey) {
+            event.preventDefault();
+            clearSelection();
+            return;
+        }
         const interactive = ['INPUT', 'TEXTAREA', 'SELECT'];
         if (interactive.includes(document.activeElement?.tagName)) return;
         if (event.key === 'ArrowLeft') movePhoto(-1);
         if (event.key === 'ArrowRight') movePhoto(1);
-        if (event.key === 'Escape' && selectedReviewKey) clearSelection();
     }
 
     function openGettingStarted() {

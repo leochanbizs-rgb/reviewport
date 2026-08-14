@@ -22,6 +22,7 @@
 }
 
 * { box-sizing: border-box; }
+html[data-theme-pending] body { visibility: hidden; }
 html { background: var(--rp-canvas); }
 body {
     min-width: 0;

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-theme-pending>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark light">
     <title>ReviewPort — Review Studio</title>
+    <script src="js/theme-bootstrap.js"></script>
     <link rel="stylesheet" href="css/review-studio.css">
 </head>
 <body>
@@ -42,7 +43,7 @@
                 <h2 id="workspaceTitle">Saved reviews</h2>
                 <p id="workspaceSubtitle" class="workspace-subtitle">Select a review to open the full text and photos.</p>
             </div>
-            <div class="scan-context" id="scanContext">Open a TikTok Shop product page and start a scan.</div>
+            <div class="scan-context" id="scanContext" role="status" aria-live="polite">Open a TikTok Shop product page and start a scan.</div>
         </section>
 
         <section class="summary-grid" aria-label="Saved review summary">
@@ -88,7 +89,7 @@
                                 <th scope="col">Date</th>
                                 <th scope="col">Reviewer</th>
                                 <th scope="col">Score</th>
-                                <th scope="col">SKU / variant</th>
+                                <th scope="col">Variant</th>
                                 <th scope="col">Review</th>
                                 <th scope="col">Photos</th>
                             </tr>
@@ -110,7 +111,7 @@
                     <p>Select a row for the full review and buyer photos.</p>
                 </div>
 
-                <div id="detailContent" hidden>
+                <div id="detailContent" role="dialog" aria-modal="true" aria-labelledby="detailReviewer" tabindex="-1" hidden>
                     <div class="detail-header">
                         <div>
                             <p class="eyebrow">REVIEW DETAILS</p>
@@ -215,17 +216,22 @@
                                 <label class="shopify-format-field" for="shopifyFormat">
                                     <span>My review app</span>
                                     <select id="shopifyFormat" name="shopifyFormat">
-                                        <option value="judge_me">Judge.me</option>
-                                        <option value="loox">Loox</option>
-                                        <option value="okendo">Okendo</option>
-                                        <option value="opinew">Opinew</option>
-                                        <option value="ryviu">Ryviu</option>
-                                        <option value="yotpo">Yotpo</option>
-                                        <option value="stamped">Stamped</option>
-                                        <option value="fera">Fera sample mapping</option>
+                                        <optgroup label="Documented import layouts">
+                                            <option value="judge_me">Judge.me</option>
+                                            <option value="loox">Loox</option>
+                                            <option value="okendo">Okendo</option>
+                                            <option value="opinew">Opinew</option>
+                                            <option value="ryviu">Ryviu</option>
+                                            <option value="yotpo">Yotpo mapping</option>
+                                            <option value="stamped">Stamped</option>
+                                        </optgroup>
+                                        <optgroup label="Sample mapping — verify before import">
+                                            <option value="fera">Fera sample mapping</option>
+                                        </optgroup>
                                     </select>
                                 </label>
-                                <p id="shopifyFormatDescription" class="shopify-format-description">Judge.me CSV. Product details can be left blank for a store review.</p>
+                                <p class="shopify-format-hint image-url-retention">Buyer images remain third-party URLs. Check the compatibility warning before exporting; ReviewPort cannot restore an expired or unsupported URL.</p>
+                                <p id="shopifyFormatHint" class="shopify-format-hint">Judge.me CSV. Product details can be left blank for a store review.</p>
                             </div>
                         </section>
 

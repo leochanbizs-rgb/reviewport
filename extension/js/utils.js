@@ -28,6 +28,10 @@ class ReviewClassifier {
         if (Array.isArray(review?.photos)) {
             return review.photos.map(url => String(url || '').trim()).filter(Boolean);
         }
+        if (Array.isArray(review?.photo_urls)) {
+            return review.photo_urls.map(url => String(url || '').trim()).filter(Boolean);
+        }
+        // Backward compatibility for scans saved before v5.5.0.
         return String(review?.photo_urls || '')
             .split(' | ')
             .map(url => url.trim())
@@ -87,7 +91,7 @@ class ShopifyReviewConverter {
         ryviu: { label: 'Ryviu CSV', maxPhotos: Infinity, needsHandle: true },
         yotpo: { label: 'Yotpo mapping CSV', maxPhotos: 1, needsHandle: false },
         stamped: { label: 'Stamped CSV', maxPhotos: 3, needsHandle: false },
-        fera: { label: 'Fera sample mapping CSV', maxPhotos: 2, needsHandle: false }
+        fera: { label: 'Fera sample mapping CSV (not an official template)', maxPhotos: 2, needsHandle: false, mappingOnly: true }
     });
 
     static normalizeSettings(settings = {}) {
@@ -113,6 +117,12 @@ class ShopifyReviewConverter {
             throw new Error(`${this.FORMAT_META[format].label} requires a Shopify product handle. Add the part after /products/ in Shopify import settings.`);
         }
 
+        if (['okendo', 'opinew'].includes(format)) {
+            const missingMatchIndex = reviews.findIndex(() => !(normalized.productHandle || normalized.productId));
+            if (missingMatchIndex >= 0) {
+                throw new Error(`${this.FORMAT_META[format].label} needs your Shopify product handle or product ID. TikTok variant text is not treated as a Shopify SKU.`);
+            }
+        }
         const diagnostics = { skippedImages: 0, totalImages: 0 };
         const rows = reviews.map((review, index) => this.rowFor(format, review, index, normalized, diagnostics));
         return { headers: this.headersFor(format), rows, diagnostics };
@@ -136,8 +146,8 @@ class ShopifyReviewConverter {
         const base = this.baseReview(review, index);
         const maxPhotos = this.FORMAT_META[format].maxPhotos;
         const photos = this.compatiblePhotos(review, maxPhotos, diagnostics).join(',');
-        const reviewerName = base.username || 'Anonymous';
-        const sku = base.sku;
+        const reviewerName = base.username || '';
+        const variant = base.variant;
 
         if (format === 'judge_me') {
             return {
@@ -170,14 +180,14 @@ class ShopifyReviewConverter {
                 photo_url: photos,
                 reply: '',
                 replied_at: '',
-                verified_purchase: '',
+                verified_purchase: base.verified ? 'true' : '',
                 incentivized: ''
             };
         }
 
         if (format === 'okendo') {
-            if (!(settings.productHandle || settings.productId || sku)) {
-                throw new Error('Okendo requires a Shopify product handle, product ID, or the original SKU for every review.');
+            if (!(settings.productHandle || settings.productId)) {
+                throw new Error('Okendo requires your Shopify product handle or product ID. TikTok variant text is not used as a Shopify SKU.');
             }
             const published = settings.publicationState === 'published';
             return {
@@ -186,9 +196,9 @@ class ShopifyReviewConverter {
                 handle: settings.productHandle,
                 productId: settings.productId,
                 rating: base.rating,
-                sku,
+                sku: '',
                 dateCreated: this.dateYMDTime(base.date),
-                countryCode: '',
+                countryCode: base.country,
                 email: '',
                 imageUrls: photos,
                 isApproved: published ? 'true' : 'false',
@@ -200,15 +210,15 @@ class ShopifyReviewConverter {
                 replyIsPublic: 'false',
                 title: this.makeLocalTitle(base.body, base.rating),
                 videoUrls: '',
-                isVerifiedBuyer: 'false',
+                isVerifiedBuyer: base.verified ? 'true' : 'false',
                 variantId: '',
                 status: published ? 'approved' : 'pending'
             };
         }
 
         if (format === 'opinew') {
-            if (!(settings.productHandle || settings.productId || sku)) {
-                throw new Error('Opinew requires a Shopify product ID, product handle, or SKU for every review.');
+            if (!(settings.productHandle || settings.productId)) {
+                throw new Error('Opinew requires your Shopify product ID or product handle. TikTok variant text is not used as a Shopify SKU.');
             }
             return {
                 body: base.body,
@@ -222,9 +232,9 @@ class ShopifyReviewConverter {
                 reply: '',
                 reply_date: '',
                 picture_urls: photos,
-                SKU: sku,
+                SKU: '',
                 barcode: '',
-                region: ''
+                region: base.country
             };
         }
 
@@ -261,7 +271,7 @@ class ShopifyReviewConverter {
                 'Review Score': base.rating,
                 'Display Name': reviewerName,
                 Email: this.technicalEmail(index),
-                'Customer Country': settings.yotpoCountry,
+                'Customer Country': base.country || settings.yotpoCountry,
                 'Published Image URL': photos,
                 Published: settings.publicationState === 'published' ? 'TRUE' : 'FALSE'
             };
@@ -297,7 +307,7 @@ class ShopifyReviewConverter {
                 recommended: '',
                 votes_up: '',
                 votes_down: '',
-                location: '',
+                location: base.country,
                 featured: 'FALSE'
             };
         }
@@ -339,7 +349,9 @@ class ShopifyReviewConverter {
             rating,
             date,
             username: String(review?.username || '').trim(),
-            sku: String(review?.sku || '').trim()
+            variant: String(review?.variant || review?.sku || '').trim(),
+            country: /^[a-z]{2,3}$/i.test(String(review?.country || '').trim()) ? String(review.country).trim().toLowerCase() : '',
+            verified: Boolean(review?.verified)
         };
     }
 

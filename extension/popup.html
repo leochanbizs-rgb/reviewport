@@ -16,14 +16,14 @@
                     <h1>ReviewPort</h1>
                 </div>
             </div>
-            <span class="status-pill" id="connectionPill">Ready</span>
+            <span class="status-pill" id="connectionPill" role="status" aria-live="polite">Ready</span>
         </header>
 
         <section class="hero-card" aria-labelledby="heroTitle">
             <div>
                 <p class="hero-kicker">FOR TIKTOK SHOP</p>
                 <h2 id="heroTitle">Scan first. Review everything next.</h2>
-                <p>Choose the reviews you need. When scanning ends, your full local report opens automatically.</p>
+                <p>Start a scan to process TikTok Shop review response data locally. Your local report opens when the scan ends.</p>
             </div>
             <div class="hero-icon" aria-hidden="true">⌁</div>
         </section>
@@ -67,9 +67,10 @@
                 <span id="exactRatingHelp" class="tooltip" role="tooltip">Choose the same minimum and maximum star level. ReviewPort first confirms TikTok's visible matching filter, then scans only that result set. If TikTok does not confirm it, scanning pauses instead of scanning all reviews.</span>
             </div>
 
-            <label class="field field-full" for="maxPages">
-                <span>Pages to scan <button class="help-tip" type="button" aria-label="About pages to scan" aria-describedby="pagesHelp">?</button><span id="pagesHelp" class="tooltip" role="tooltip">The maximum number of TikTok review pages to collect, from 1 to 100. ReviewPort scans one visible page at a time and saves reviews locally as it goes.</span></span>
-                <input type="number" id="maxPages" name="maxPages" min="1" max="100" value="10" inputmode="numeric">
+            <label class="field field-full" for="targetReviews">
+                <span>Reviews to collect <button class="help-tip" type="button" aria-label="About review target" aria-describedby="targetHelp">?</button><span id="targetHelp" class="tooltip" role="tooltip">Choose how many matching reviews you want. ReviewPort derives the required TikTok pages from the review count the page shows, then stops when the target is reached or TikTok reaches the end.</span></span>
+                <input type="number" id="targetReviews" name="targetReviews" min="1" max="10000" value="30" inputmode="numeric">
+                <small id="targetEstimate" class="field-estimate">Select a rating, then start a scan to read TikTok’s available review count and page estimate.</small>
             </label>
 
             <label class="toggle-row" for="onlyWithImages">
@@ -91,7 +92,7 @@
                 <strong class="review-count" id="reviewCount">0 reviews</strong>
             </div>
             <p class="status-copy" id="status">Set your review selection, then start scanning.</p>
-            <div class="progress" aria-label="Scan progress" aria-valuemin="0" aria-valuemax="100" role="progressbar">
+            <div class="progress" aria-label="Scan progress" aria-valuemin="0" aria-valuemax="100" aria-valuetext="0% complete" role="progressbar">
                 <div id="progressBar" class="progress-bar"></div>
             </div>
         </section>

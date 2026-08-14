@@ -1,0 +1,14 @@
+# Release binaries are attached to GitHub Releases, never tracked in source.
+*.zip
+
+# Local working files
+.DS_Store
+Thumbs.db
+node_modules/
+coverage/
+*.log
+
+# Chrome and editor workspace files
+.chrome-profile/
+.vscode/
+.idea/

@@ -12,7 +12,8 @@ const PHOTO_PREFERENCE_MIGRATION = 2;
 
 const minStarsSelect = document.getElementById('minStars');
 const maxStarsSelect = document.getElementById('maxStars');
-const maxPagesInput = document.getElementById('maxPages');
+const targetReviewsInput = document.getElementById('targetReviews');
+const targetEstimate = document.getElementById('targetEstimate');
 const onlyWithImagesCheckbox = document.getElementById('onlyWithImages');
 const startScrapingBtn = document.getElementById('startScraping');
 const pauseScrapingBtn = document.getElementById('pauseScraping');
@@ -34,7 +35,7 @@ resumeScrapingBtn.addEventListener('click', () => startScraping(true));
 openFullPreviewBtn.addEventListener('click', () => openFullPreview(false));
 clearDataBtn.addEventListener('click', clearData);
 openGettingStartedBtn.addEventListener('click', openGettingStarted);
-[minStarsSelect, maxStarsSelect, maxPagesInput, onlyWithImagesCheckbox]
+[minStarsSelect, maxStarsSelect, targetReviewsInput, onlyWithImagesCheckbox]
     .forEach(element => element.addEventListener('change', savePreferences));
 document.querySelectorAll('.help-tip').forEach(button => {
     button.addEventListener('click', event => {
@@ -49,12 +50,13 @@ document.addEventListener('keydown', event => {
 });
 
 chrome.storage.local.get([
-    'minStars', 'maxStars', 'maxPages', 'onlyWithImages', 'photoPreferenceMigration',
+    'minStars', 'maxStars', 'targetReviews', 'maxPages', 'onlyWithImages', 'photoPreferenceMigration',
     'collectedReviews', 'scrapingState'
 ], result => {
     if (result.minStars) minStarsSelect.value = result.minStars;
     if (result.maxStars) maxStarsSelect.value = result.maxStars;
-    if (result.maxPages) maxPagesInput.value = Math.max(1, Math.min(100, parseInt(result.maxPages, 10) || 10));
+    if (result.targetReviews) targetReviewsInput.value = Math.max(1, Math.min(10000, parseInt(result.targetReviews, 10) || 30));
+    else if (result.maxPages) targetReviewsInput.value = Math.max(1, Math.min(10000, (parseInt(result.maxPages, 10) || 10) * 3));
 
     if (result.photoPreferenceMigration === PHOTO_PREFERENCE_MIGRATION) {
         onlyWithImagesCheckbox.checked = Boolean(result.onlyWithImages);
@@ -76,6 +78,7 @@ chrome.storage.local.get([
     }
 
     const activeState = result.scrapingState;
+    updateTargetEstimate(activeState?.reviewMetrics, activeState?.options);
     const stateValue = activeState && (activeState.status || activeState.state);
     if (stateValue === 'paused') {
         handlePausedState(activeState);
@@ -99,7 +102,7 @@ function savePreferences() {
     chrome.storage.local.set({
         minStars: minStarsSelect.value,
         maxStars: maxStarsSelect.value,
-        maxPages: Math.max(1, Math.min(100, parseInt(maxPagesInput.value, 10) || 10)),
+        targetReviews: Math.max(1, Math.min(10000, parseInt(targetReviewsInput.value, 10) || 30)),
         onlyWithImages: onlyWithImagesCheckbox.checked,
         photoPreferenceMigration: PHOTO_PREFERENCE_MIGRATION
     });
@@ -107,6 +110,18 @@ function savePreferences() {
     if (collectedReviews.length) {
         applyFiltersOnly();
         openFullPreviewBtn.disabled = processedReviews.length === 0;
+    }
+}
+
+function updateTargetEstimate(metrics, options = {}) {
+    if (!targetEstimate || !metrics) return;
+    const target = Math.max(1, Number(options.targetReviews || targetReviewsInput.value) || 30);
+    const eligible = Number.isFinite(metrics.displayed) ? metrics.displayed : metrics.total;
+    const pageCount = Number(options.maxPages) || 0;
+    if (Number.isFinite(eligible) && eligible >= 0) {
+        const actualTarget = Math.min(target, eligible);
+        const pageText = pageCount ? ` · ~${pageCount} pages` : '';
+        targetEstimate.textContent = `${eligible} matching reviews available${pageText}. ReviewPort will collect up to ${actualTarget}.`;
     }
 }
 
@@ -126,6 +141,15 @@ function updateStatus(message, type = 'info') {
     else if (type === 'running') updatePill('Scanning', 'running');
 }
 
+function setButtonLabel(button, icon, label) {
+    const iconElement = document.createElement('span');
+    iconElement.className = 'button-icon';
+    iconElement.setAttribute('aria-hidden', 'true');
+    iconElement.textContent = icon;
+    button.replaceChildren(iconElement, document.createTextNode(` ${label}`));
+    button.setAttribute('aria-label', label);
+}
+
 function handlePausedState(state) {
     stopPolling();
     startScrapingBtn.disabled = false;
@@ -135,16 +159,19 @@ function handlePausedState(state) {
     stopScrapingBtn.disabled = false;
     resumeScrapingBtn.hidden = false;
     resumeScrapingBtn.disabled = false;
-    resumeScrapingBtn.innerHTML = state.pauseReason === 'verification'
-        ? '<span class="button-icon">▶</span> Resume after verification'
-        : '<span class="button-icon">▶</span> Resume scan';
+    const resumeLabel = state.pauseReason === 'verification'
+        ? 'Resume after verification'
+        : state.pauseReason === 'native_rating'
+            ? 'Retry selected star filter'
+            : 'Resume scan';
+    setButtonLabel(resumeScrapingBtn, '▶', resumeLabel);
     if (collectedReviews.length) {
         applyFiltersOnly();
         openFullPreviewBtn.disabled = processedReviews.length === 0;
     }
     updateProgress(state.progress || 0);
     updateStatus(
-        state.message || 'Paused: complete TikTok verification in the page, then select Resume after verification.',
+        state.message || 'Paused safely. Review the TikTok product page, then select the action shown above to continue.',
         'paused'
     );
 }
@@ -152,7 +179,9 @@ function handlePausedState(state) {
 function updateProgress(percentage) {
     const safePercentage = Math.max(0, Math.min(100, Number(percentage) || 0));
     progressBar.style.width = `${safePercentage}%`;
-    progressElement.setAttribute('aria-valuenow', String(Math.round(safePercentage)));
+    const rounded = Math.round(safePercentage);
+    progressElement.setAttribute('aria-valuenow', String(rounded));
+    progressElement.setAttribute('aria-valuetext', `${rounded}% complete`);
 }
 
 function updateReviewCount() {
@@ -183,6 +212,7 @@ function startPolling() {
                 updateReviewCount();
             }
             updateProgress(state.progress);
+            updateTargetEstimate(state.reviewMetrics, state.options);
 
             if (stateValue === 'paused') {
                 handlePausedState(state);
@@ -203,7 +233,7 @@ function startPolling() {
                 updateStatus(state.message || 'Scanning reviews…', 'running');
             }
         });
-    }, 500);
+    }, 1000);
 }
 
 function stopPolling() {
@@ -244,7 +274,7 @@ async function startScraping(resume = false) {
         if (!resume) openFullPreviewBtn.disabled = true;
 
         updateProgress(resume ? 5 : 2);
-        updateStatus(resume ? 'Checking the page after verification…' : 'Preparing the page for a scan…', 'running');
+        updateStatus(resume ? 'Restoring the saved scan safely…' : 'Preparing the page for a scan…', 'running');
 
         if (!resume) {
             collectedReviews = [];
@@ -276,11 +306,11 @@ async function startScraping(resume = false) {
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        const maxPages = Math.max(1, Math.min(100, parseInt(maxPagesInput.value, 10) || 10));
+        const targetReviews = Math.max(1, Math.min(10000, parseInt(targetReviewsInput.value, 10) || 30));
         const response = await chrome.tabs.sendMessage(currentTab.id, {
             action: resume ? 'resumeScraping' : 'startScraping',
             options: {
-                maxPages,
+                targetReviews,
                 minStars: Number(minStarsSelect.value),
                 maxStars: Number(maxStarsSelect.value)
             }
@@ -384,9 +414,11 @@ function clearData() {
     updateProgress(0);
     updateReviewCount();
     chrome.storage.local.remove([
-        'collectedReviews', 'processedReviews', 'scrapingState', 'reviews', 'lastUpdated'
+        'collectedReviews', 'processedReviews', 'scrapingState', 'reviews', 'lastUpdated',
+        'shopifyExportSettings', 'productHandle', 'customExportColumns',
+        'minStars', 'maxStars', 'onlyWithImages'
     ]);
     updateStatus('Saved reviews cleared from this browser.', 'success');
 }
 
-console.log('ReviewPort scan popup loaded');
+// Popup intentionally has no production console logging.

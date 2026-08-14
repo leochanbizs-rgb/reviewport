@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "ReviewPort for TikTok Shop",
+    "description": "Chrome extension name"
+  },
+  "extensionDescription": {
+    "message": "Process TikTok Shop review response data locally and export CSV or Markdown files.",
+    "description": "Chrome extension description"
+  }
+}
