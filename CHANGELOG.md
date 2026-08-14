@@ -2,6 +2,10 @@
 
 All notable public changes to ReviewPort are recorded here. Versions refer to the manifest version and the corresponding GitHub Release asset.
 
+## v5.6.1 — Release asset alignment
+
+This release packages the current Manifest V3 source as `reviewport-v5.6.1.zip`, so the downloadable asset matches the `5.6.1` manifest version. It also corrects the Review Studio export-format hint element identifier used by the current page markup.
+
 ## v5.6.0 — Numeric exact-rating scan and repository release
 
 The scan popup now asks for a **Reviews to collect** target instead of a user-entered page count. ReviewPort derives an internal page budget from TikTok’s visible matching-review count and retains a 100-page safety ceiling.

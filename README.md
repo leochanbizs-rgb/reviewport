@@ -6,7 +6,7 @@
 
 ## Current download
 
-The current release is **v5.6.0**. Download the package from the [GitHub Releases page](https://github.com/leochanbizs-rgb/reviewport/releases/tag/v5.6.0), not from a raw branch link. The release notes include the ZIP SHA-256 so a download can be verified.
+The current release is **v5.6.1**. Download [`reviewport-v5.6.1.zip`](https://github.com/leochanbizs-rgb/reviewport/releases/download/v5.6.1/reviewport-v5.6.1.zip) from the [GitHub Releases page](https://github.com/leochanbizs-rgb/reviewport/releases/tag/v5.6.1), not from a raw branch link. Its SHA-256 is `d0b6c329977c5a4c81a877ec9dfe56aca8b8722cf625339f6f8fbde58d2b3509`.
 
 ## How it works
 
